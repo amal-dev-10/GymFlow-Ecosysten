@@ -1,0 +1,86 @@
+# =============================================================================
+# GymFlow full stack.
+#
+#   gymflow.io        -> web       (tenant client)
+#   admin.gymflow.io  -> platform  (platform admin)
+#   api.gymflow.io    -> api       (NestJS backend)  + postgres
+#
+# Quick start:
+#   cp .env.docker.example .env
+#   docker compose up -d --build
+#
+# NEXT_PUBLIC_* build args are baked into the frontend bundles, so changing
+# NEXT_PUBLIC_API_URL requires a rebuild: `docker compose up -d --build web platform`.
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gymflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gymflow_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-gymflow}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gymflow} -d ${POSTGRES_DB:-gymflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gymflow}:${POSTGRES_PASSWORD:-gymflow_secret}@postgres:5432/${POSTGRES_DB:-gymflow}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-please_change_this_in_production}
+      PORT: "5000"
+      NODE_ENV: production
+      # Restrict browser CORS to the two frontend origins.
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://gymflow.io,http://admin.gymflow.io}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api.gymflow.io}
+        NEXT_PUBLIC_RAZORPAY_KEY_ID: ${NEXT_PUBLIC_RAZORPAY_KEY_ID:-}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  platform:
+    build:
+      context: .
+      dockerfile: Dockerfile.platform
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api.gymflow.io}
+        # Empty => admin app serves at the subdomain root (no /platform prefix).
+        NEXT_PUBLIC_BASE_PATH: ""
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  proxy:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+      - platform
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -1,0 +1,1890 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// CORE SAAS & TENANCY
+// -----------------------------------------------------------------------------
+
+model User {
+  id          String    @id @default(uuid())
+  phoneNumber String    @unique
+  email       String?   @unique
+  fullName    String
+  isVerified  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  organizationUsers OrganizationUser[]
+  employees         Employee[]
+  exerciseFavorites ExerciseFavorite[]
+  createdWorkouts   Workout[]          @relation("WorkoutCreator")
+  platformAdminUser PlatformAdminUser?
+}
+
+/// Platform-admin lifecycle state for a customer organization, distinct from
+/// its subscription status (Trial/Expired come from OrganizationSubscription).
+/// ACTIVE is the normal state; SUSPENDED/ARCHIVED are Platform-Admin actions.
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+model Organization {
+  id           String  @id @default(uuid())
+  name         String
+  slug         String  @unique
+  logoUrl      String?
+  businessType String?
+  phone        String?
+  email        String?
+  website      String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  country      String?
+  postalCode   String?
+  currency     String? @default("USD")
+  timezone     String? @default("UTC")
+  dateFormat   String? @default("YYYY-MM-DD")
+  language     String? @default("en")
+  description  String?
+  supportContact String?
+  supportEmail   String?
+  primaryColor   String?
+  secondaryColor String?
+  faviconUrl     String?
+  allowMemberSelfRegistration Boolean? @default(true)
+  enableMultiBranchOperations Boolean? @default(true)
+  enableAttendanceTracking    Boolean? @default(true)
+  enableWorkoutManagement     Boolean? @default(true)
+  enableDietManagement        Boolean? @default(true)
+  enablePersonalTraining      Boolean? @default(false)
+
+  // --- Platform Administration lifecycle (PLT-004 Organization Management) ---
+  platformStatus OrganizationStatus @default(ACTIVE)
+  suspendedAt    DateTime?
+  suspendReason  String?
+  archivedAt     DateTime?
+  lastActiveAt   DateTime? // last recorded tenant activity; used for health + insights
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  settings  Json?
+
+  users                   OrganizationUser[]
+  gyms                    Gym[]
+  roles                   Role[]
+  invitations             OrganizationInvitation[]
+  members                 Member[]
+  employees               Employee[]
+  leadSources             LeadSource[]
+  leadStatuses            LeadStatus[]
+  leads                   Lead[]
+  subscriptions           OrganizationSubscription[]
+  engineOverrides         EngineOverride[]
+  supportTickets          SupportTicket[]
+  platformUserAssignments PlatformUserOrgAssignment[]
+  auditLogs               AuditLog[]
+  membershipPlans         MembershipPlan[]
+  attendances             Attendance[]
+  exercises               Exercise[]
+  metadataItems           MetadataItem[]
+  workouts                Workout[]
+  devices                 Device[]
+  expiryReminderRules     ExpiryReminderRule[]
+  reminderChannelConfig   OrgReminderChannelConfig?
+}
+
+model Gym {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  code           String?
+  settings       Json?
+  address        String?
+  latitude       Float?
+  longitude      Float?
+  contactPhone   String?
+  contactEmail   String?
+  capacity       Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization           Organization            @relation(fields: [organizationId], references: [id])
+  employeeGymAssignments EmployeeGymAssignment[]
+  members                Member[]                @relation("HomeGym")
+  leads                  Lead[]
+  attendances            Attendance[]
+  devices                Device[]
+}
+
+model Role {
+  id             String   @id @default(uuid())
+  organizationId String?
+  name           String
+  description    String?
+  category       String   @default("Custom")
+  gymScope       String   @default("all")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization              Organization?            @relation(fields: [organizationId], references: [id])
+  organizationUsers         OrganizationUser[]
+  organizationUsersMultiple OrganizationUser[]       @relation("OrganizationUserRoles")
+  rolePermissions           RolePermission[]
+  invitations               OrganizationInvitation[]
+  invitationsMultiple       OrganizationInvitation[] @relation("InvitationRoles")
+}
+
+model OrganizationUser {
+  id             String  @id @default(uuid())
+  userId         String
+  organizationId String
+  roleId         String
+  isActive       Boolean @default(true)
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  role         Role         @relation(fields: [roleId], references: [id])
+  roles        Role[]       @relation("OrganizationUserRoles")
+
+  @@unique([userId, organizationId])
+}
+
+model Permission {
+  id       String @id @default(uuid())
+  resource String
+  action   String
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model OrganizationInvitation {
+  id             String    @id @default(uuid())
+  organizationId String
+  phoneNumber    String
+  email          String?
+  fullName       String?
+  roleId         String
+  status         String    @default("Pending") // Pending, Accepted, Expired, Rejected
+  gymIds         String    @default("all")
+  invitedBy      String    @default("Marcus Vance")
+  expiresAt      DateTime
+  viewedAt       DateTime?
+  acceptedAt     DateTime?
+  rejectedAt     DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  role         Role         @relation(fields: [roleId], references: [id])
+  roles        Role[]       @relation("InvitationRoles")
+}
+
+// -----------------------------------------------------------------------------
+// HR & EMPLOYEES
+// -----------------------------------------------------------------------------
+
+model Employee {
+  id               String    @id @default(uuid())
+  organizationId   String
+  userId           String
+  employeeIdNumber String?
+  designation      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  user                   User                    @relation(fields: [userId], references: [id])
+  organization           Organization            @relation(fields: [organizationId], references: [id])
+  employeeGymAssignments EmployeeGymAssignment[]
+  employeeDocuments      EmployeeDocument[]
+  leadAssignments        LeadAssignment[]
+  leadActivities         LeadActivity[]
+}
+
+model EmployeeGymAssignment {
+  id              String  @id @default(uuid())
+  employeeId      String
+  gymId           String
+  isPrimary       Boolean @default(false)
+  isBranchManager Boolean @default(false)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  gym      Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, gymId])
+}
+
+model EmployeeDocument {
+  id           String   @id @default(uuid())
+  employeeId   String
+  documentType String // Contract, ID, Certificate
+  url          String
+  status       String   @default("Active")
+  uploadedAt   DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+// -----------------------------------------------------------------------------
+// MEMBERS & OPERATIONS
+// -----------------------------------------------------------------------------
+
+model Member {
+  id              String    @id @default(uuid())
+  organizationId  String
+  homeGymId       String
+  firstName       String
+  lastName        String
+  phoneNumber     String
+  dob             DateTime?
+  gender          String?
+  aiInsights      Json?
+  phoneVerified   Boolean   @default(false)
+  phoneVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  homeGym            Gym                 @relation("HomeGym", fields: [homeGymId], references: [id])
+  memberMeasurements MemberMeasurement[]
+  memberQrCodes      MemberQrCode[]
+  memberDocuments    MemberDocument[]
+  memberMemberships  MemberMembership[]
+  attendances        Attendance[]
+}
+
+/// A phone number is the shared "global account" key across all organizations.
+/// Verifying it once (e.g. via OTP) carries forward to every gym the same
+/// person joins, and backs the future member mobile app login.
+model PhoneVerification {
+  phoneNumber   String    @id
+  otpCodeHash   String?
+  otpExpiresAt  DateTime?
+  attempts      Int       @default(0)
+  verified      Boolean   @default(false)
+  verifiedAt    DateTime?
+  updatedAt     DateTime  @updatedAt
+}
+
+model MemberMeasurement {
+  id                String   @id @default(uuid())
+  memberId          String
+  date              DateTime @default(now())
+  height            Float?
+  weight            Float?
+  bodyFatPercentage Float?
+  chest             Float?
+  waist             Float?
+  hip               Float?
+  arm               Float?
+  thigh             Float?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model MemberQrCode {
+  id          String   @id @default(uuid())
+  memberId    String
+  qrToken     String   @unique
+  generatedAt DateTime @default(now())
+  expiresAt   DateTime
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model MemberDocument {
+  id           String   @id @default(uuid())
+  memberId     String
+  documentType String // ID Proof, Medical, Consent
+  url          String
+  status       String   @default("Active")
+  uploadedAt   DateTime @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model MembershipPlan {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  description    String?
+  category       String
+  status         String   @default("Draft")
+  durationType   String
+  durationValue  Int
+  basePrice      Float
+  joiningFee     Float    @default(0)
+  taxPercentage  Float    @default(0)
+  branchAccess   String   @default("all")
+  benefits       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization      Organization       @relation(fields: [organizationId], references: [id])
+  memberMemberships MemberMembership[]
+}
+
+model MemberMembership {
+  id               String   @id @default(uuid())
+  memberId         String
+  membershipPlanId String
+  startDate        DateTime @default(now())
+  endDate          DateTime
+  status           String   @default("Active")
+  amountPaid       Float
+  outstandingDues  Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  member         Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  membershipPlan MembershipPlan     @relation(fields: [membershipPlanId], references: [id])
+  freezes        MembershipFreeze[]
+}
+
+model MembershipFreeze {
+  id                 String   @id @default(uuid())
+  memberMembershipId String
+  startDate          DateTime
+  endDate            DateTime
+  durationDays       Int
+  reasonCategory     String
+  reasonNotes        String?
+  status             String   @default("Pending Approval") // Pending Approval, Approved, Rejected, Cancelled, Expired
+  documentUrl        String?
+  approvedBy         String?
+  rejectionReason    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  memberMembership MemberMembership @relation(fields: [memberMembershipId], references: [id], onDelete: Cascade)
+}
+
+// -----------------------------------------------------------------------------
+// LEADS / CRM MODULE
+// -----------------------------------------------------------------------------
+
+model LeadSource {
+  id             String @id @default(uuid())
+  organizationId String
+  name           String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leads        Lead[]
+}
+
+model LeadStatus {
+  id             String  @id @default(uuid())
+  organizationId String
+  name           String
+  isSystem       Boolean @default(false)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leads        Lead[]
+}
+
+model Lead {
+  id             String    @id @default(uuid())
+  organizationId String
+  gymId          String
+  sourceId       String
+  statusId       String
+  firstName      String
+  lastName       String
+  phoneNumber    String
+  aiScore        Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  gym          Gym              @relation(fields: [gymId], references: [id])
+  source       LeadSource       @relation(fields: [sourceId], references: [id])
+  status       LeadStatus       @relation(fields: [statusId], references: [id])
+  assignments  LeadAssignment[]
+  activities   LeadActivity[]
+}
+
+model LeadAssignment {
+  id         String   @id @default(uuid())
+  leadId     String
+  employeeId String
+  assignedAt DateTime @default(now())
+
+  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model LeadActivity {
+  id           String   @id @default(uuid())
+  leadId       String
+  employeeId   String
+  activityType String // Call, Meeting, Email
+  notes        String?
+  activityDate DateTime @default(now())
+
+  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+// -----------------------------------------------------------------------------
+// SAAS SUBSCRIPTION SYSTEM / PLATFORM PLAN MANAGEMENT (PLT-002)
+// -----------------------------------------------------------------------------
+
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum PlanVisibility {
+  PUBLIC
+  PRIVATE
+  INTERNAL
+}
+
+enum BillingCycle {
+  FREE
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  ENTERPRISE
+  CUSTOM
+}
+
+enum WorkspaceExperience {
+  ESSENTIAL
+  PROFESSIONAL
+  EXPERT
+}
+
+enum ResourceLimitType {
+  LIMITED
+  UNLIMITED
+  DISABLED
+}
+
+enum FeatureState {
+  ENABLED
+  DISABLED
+  BETA
+  ENTERPRISE_ONLY
+  HIDDEN
+  COMING_SOON
+}
+
+enum OverrideScope {
+  FEATURE
+  RESOURCE
+}
+
+enum OverrideType {
+  TEMPORARY
+  PERMANENT
+  EMERGENCY
+}
+
+enum OverrideStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum PlanChangeType {
+  CREATED
+  UPDATED
+  PRICING_CHANGED
+  FEATURE_CHANGED
+  LIMIT_CHANGED
+  ARCHIVED
+  RESTORED
+}
+
+enum PlatformRole {
+  SUPER_ADMIN
+  OPERATIONS
+  FINANCE
+  SALES
+  SUPPORT
+  DEVELOPER
+  MARKETING
+  CUSTOMER_SUCCESS
+}
+
+/// PLT-007 Platform Users lifecycle. isActive stays in lockstep with status
+/// (true only when ACTIVE) so the existing PlatformAdminGuard keeps working
+/// unmodified everywhere it's already used across PLT-002..006.
+enum PlatformUserStatus {
+  PENDING_INVITATION
+  ACTIVE
+  SUSPENDED
+  DISABLED
+  LOCKED
+  ARCHIVED
+}
+
+/// Platform-wide staff (not tied to any single tenant organization) — distinct
+/// from OrganizationUser, which always requires an organizationId. Login
+/// history, sessions and "last activity" are derived from AuditLog rather
+/// than stored here, since every platform action already logs userId+time.
+model PlatformAdminUser {
+  id       String             @id @default(uuid())
+  userId   String             @unique
+  role     PlatformRole
+  status   PlatformUserStatus @default(ACTIVE)
+  isActive Boolean            @default(true)
+
+  // Department is an admin-configurable catalog value (see PlatformDepartment),
+  // independent of role - e.g. a SUPER_ADMIN can sit in the Engineering department.
+  department String?
+
+  mfaEnabled                Boolean   @default(false)
+  mfaEnabledAt              DateTime?
+  mfaRecoveryCodesRemaining Int?
+
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  invitedAt           DateTime?
+  invitedByName       String?
+  invitationExpiresAt DateTime?
+  acceptedAt          DateTime?
+
+  suspendedAt   DateTime?
+  suspendReason String?
+  deactivatedAt DateTime?
+  archivedAt    DateTime?
+
+  sessionTimeoutMinutes Int @default(60)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  user                    User                         @relation(fields: [userId], references: [id])
+  organizationAssignments PlatformUserOrgAssignment[]
+  roleAssignments         PlatformUserRoleAssignment[]
+  assignedSupportTickets  SupportTicket[]
+}
+
+/// Admin-configurable department catalog (PLT-007 "Department Management").
+/// isSystem = true for the seeded defaults; Platform Admins can add custom ones.
+model PlatformDepartment {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+/// Optional assignment of a Platform User (typically Support/Customer Success)
+/// to specific customer organizations they manage - read-only linkage, not a
+/// tenant membership (that's OrganizationUser, a completely separate table).
+model PlatformUserOrgAssignment {
+  id             String   @id @default(uuid())
+  platformUserId String
+  organizationId String
+  accessLevel    String // View, Manage, Full
+  status         String   @default("Active") // Active, Revoked
+  assignedByName String?
+  assignedAt     DateTime @default(now())
+
+  platformUser PlatformAdminUser @relation(fields: [platformUserId], references: [id], onDelete: Cascade)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([platformUserId, organizationId])
+}
+
+// ============================================================================
+// PLT-008 Platform Roles & Permissions Framework
+//
+// A real, data-driven RBAC system for GymFlow employees only (PlatformAdminUser).
+// Completely independent from the tenant-side Role/Permission/RolePermission
+// models above, which govern OrganizationUser (Owner/Trainer/Receptionist etc).
+//
+// This is additive alongside the legacy PlatformRole enum + PlatformAdminGuard -
+// existing controllers keep working unmodified. PlatformRoleDefinition is named
+// to avoid colliding with the pre-existing PlatformRole enum.
+// ============================================================================
+
+enum PlatformPermissionEffect {
+  ALLOW
+  DENY
+}
+
+/// Catalog of permission categories (modules) - not hardcoded, admin-manageable,
+/// same "catalog table not enum" pattern as FeatureDefinition/ResourceDefinition.
+model PlatformPermissionCategory {
+  key         String   @id
+  label       String
+  icon        String?
+  order       Int      @default(0)
+  description String?
+  createdAt   DateTime @default(now())
+
+  permissions PlatformPermission[]
+}
+
+/// Catalog of permission action types (View, Create, Suspend, Impersonate...).
+/// Kept as a table rather than an enum so new action types can be added without
+/// a migration - mirrors the category catalog above.
+model PlatformPermissionAction {
+  key         String   @id
+  label       String
+  isSensitive Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  permissions PlatformPermission[]
+}
+
+/// A single grantable permission, e.g. key = "organizations.suspend".
+/// isSensitive drives the "warn before removing critical permissions" UX.
+model PlatformPermission {
+  id            String   @id @default(uuid())
+  key           String   @unique
+  categoryKey   String
+  actionKey     String
+  resourceLabel String
+  label         String
+  description   String?
+  isSensitive   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  category        PlatformPermissionCategory    @relation(fields: [categoryKey], references: [key])
+  action          PlatformPermissionAction      @relation(fields: [actionKey], references: [key])
+  rolePermissions PlatformRolePermission[]
+  groupItems      PlatformPermissionGroupItem[]
+
+  @@index([categoryKey])
+  @@index([actionKey])
+}
+
+/// Reusable bundles of permissions (e.g. "Organization Management") that can be
+/// assigned to a role in one step instead of picking every permission by hand.
+model PlatformPermissionGroup {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  category    String // Organization Management, Commercial, Platform Operations, Security, Infrastructure, Support, Developer, Analytics
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  items           PlatformPermissionGroupItem[]
+  roleAssignments PlatformRoleGroupAssignment[]
+}
+
+model PlatformPermissionGroupItem {
+  groupId      String
+  permissionId String
+
+  group      PlatformPermissionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  permission PlatformPermission      @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, permissionId])
+}
+
+/// A dynamic, admin-defined Platform role. The 9 built-in roles (Super
+/// Administrator, Platform Administrator, Support Engineer, Customer Success,
+/// Finance, Sales, Operations, Developer, Read Only) are seeded with
+/// isSystem = true and cannot be deleted or have their slug changed.
+model PlatformRoleDefinition {
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  description   String?
+  isSystem      Boolean  @default(false)
+  status        String   @default("Active") // Active, Archived
+  colorTag      String?
+  createdByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  permissions      PlatformRolePermission[]
+  groupAssignments PlatformRoleGroupAssignment[]
+  userAssignments  PlatformUserRoleAssignment[]
+  inheritsFrom     PlatformRoleInheritance[]     @relation("RoleInheritsFrom")
+  inheritedBy      PlatformRoleInheritance[]     @relation("RoleInheritedBy")
+}
+
+/// Direct permission grant/restriction on a role. effect=DENY with a note is
+/// how the spec's named restrictions are expressed (e.g. "Finance cannot
+/// impersonate") - explicit deny always wins over allow during evaluation.
+model PlatformRolePermission {
+  roleId       String
+  permissionId String
+  effect       PlatformPermissionEffect @default(ALLOW)
+  note         String?
+  createdAt    DateTime                 @default(now())
+
+  role       PlatformRoleDefinition @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission PlatformPermission     @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+/// Assigns a whole Permission Group to a role in bulk.
+model PlatformRoleGroupAssignment {
+  roleId    String
+  groupId   String
+  effect    PlatformPermissionEffect @default(ALLOW)
+  createdAt DateTime                 @default(now())
+
+  role  PlatformRoleDefinition  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  group PlatformPermissionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, groupId])
+}
+
+/// Role inheritance edge: roleId inherits every permission of inheritsRoleId
+/// (e.g. Platform Administrator inherits Support Engineer + Operations).
+/// Circular edges are rejected in the service layer before insert.
+model PlatformRoleInheritance {
+  id             String   @id @default(uuid())
+  roleId         String
+  inheritsRoleId String
+  createdAt      DateTime @default(now())
+
+  role         PlatformRoleDefinition @relation("RoleInheritsFrom", fields: [roleId], references: [id], onDelete: Cascade)
+  inheritsRole PlatformRoleDefinition @relation("RoleInheritedBy", fields: [inheritsRoleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, inheritsRoleId])
+}
+
+/// Assigns a role to a Platform User - serves both permanent Role Assignment
+/// and Temporary Access (isTemporary=true + expiresAt) in one table, mirroring
+/// EngineOverride's reason/approver/expiresAt/revokedAt/status shape.
+/// Expiration is checked lazily at read time (no cron in this codebase, same
+/// convention as PlatformAdminUser.lockedUntil).
+model PlatformUserRoleAssignment {
+  id             String    @id @default(uuid())
+  platformUserId String
+  roleId         String
+  isTemporary    Boolean   @default(false)
+  reason         String?
+  approverName   String?
+  expiresAt      DateTime?
+  status         String    @default("Active") // Active, Expired, Revoked
+  assignedByName String?
+  assignedAt     DateTime  @default(now())
+  revokedAt      DateTime?
+  revokedByName  String?
+
+  platformUser PlatformAdminUser      @relation(fields: [platformUserId], references: [id], onDelete: Cascade)
+  role         PlatformRoleDefinition @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([platformUserId])
+  @@index([roleId])
+  @@index([status])
+}
+
+/// Reusable starting point for the Role Creation Wizard (e.g. "Support
+/// Manager", "Finance Manager"). Not itself a role - permissionKeys/groupIds
+/// are copied onto a new PlatformRoleDefinition when applied.
+model PlatformRoleTemplate {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  description    String?
+  category       String
+  permissionKeys String[] @default([])
+  groupIds       String[] @default([])
+  isSystem       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+/// Catalog of resources that plans can put limits on. Not hardcoded per-plan -
+/// admins pick from this catalog when configuring a plan's PlanResourceLimit rows.
+model ResourceDefinition {
+  key         String   @id
+  label       String
+  unit        String?
+  category    String   @default("General")
+  description String?
+  createdAt   DateTime @default(now())
+
+  planLimits PlanResourceLimit[]
+  overrides  EngineOverride[]
+}
+
+/// Catalog of features that plans can gate. Not hardcoded per-plan - admins
+/// pick from this catalog when configuring a plan's PlanFeatureAccess rows.
+model FeatureDefinition {
+  key         String   @id
+  label       String
+  category    String   @default("General")
+  description String?
+  createdAt   DateTime @default(now())
+
+  planAccess  PlanFeatureAccess[]
+  overrides   EngineOverride[]
+  dependsOn   FeatureDependency[] @relation("FeatureDependencies")
+  requiredFor FeatureDependency[] @relation("FeatureRequiredBy")
+}
+
+/// Declares that a feature only makes sense when another feature is also
+/// available (e.g. Workout Programs requires Training Studio + Exercise
+/// Library). The engine surfaces a validation warning when a plan/org grants
+/// a feature without its dependencies.
+model FeatureDependency {
+  id                 String   @id @default(uuid())
+  featureKey         String
+  requiresFeatureKey String
+  createdAt          DateTime @default(now())
+
+  feature         FeatureDefinition @relation("FeatureDependencies", fields: [featureKey], references: [key], onDelete: Cascade)
+  requiresFeature FeatureDefinition @relation("FeatureRequiredBy", fields: [requiresFeatureKey], references: [key], onDelete: Cascade)
+
+  @@unique([featureKey, requiresFeatureKey])
+}
+
+model SubscriptionPlan {
+  id           String  @id @default(uuid())
+  name         String
+  internalCode String  @unique
+  description  String?
+  badge        String?
+  displayOrder Int     @default(0)
+
+  status     PlanStatus     @default(DRAFT)
+  visibility PlanVisibility @default(PUBLIC)
+
+  price        Float
+  currency     String       @default("USD")
+  billingCycle BillingCycle
+  trialDays    Int          @default(0)
+  setupFee     Float?
+  taxIncluded  Boolean      @default(false)
+
+  version   Int     @default(1)
+  isDefault Boolean @default(false) // plan auto-assigned to newly created organizations
+
+  workspaceExperienceDefault WorkspaceExperience @default(ESSENTIAL)
+  allowExperienceOverride    Boolean             @default(true)
+
+  brandingAllowed Boolean @default(false)
+  brandingConfig  Json? // { primaryColor, accentColor, customLogo, customDomain, emailBranding }
+
+  downgradeAllowed Boolean @default(true)
+  autoUpgrade      Boolean @default(false)
+  gracePeriodDays  Int     @default(0)
+
+  trialConversionPlanId String?
+  trialConversionPlan   SubscriptionPlan?  @relation("TrialConversionPlan", fields: [trialConversionPlanId], references: [id])
+  trialConversionFor    SubscriptionPlan[] @relation("TrialConversionPlan")
+
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  resourceLimits            PlanResourceLimit[]
+  featureAccess             PlanFeatureAccess[]
+  upgradePathsFrom          PlanUpgradePath[]          @relation("PlanUpgradeFrom")
+  upgradePathsTo            PlanUpgradePath[]          @relation("PlanUpgradeTo")
+  versionHistory            PlanVersionHistory[]
+  organizationSubscriptions OrganizationSubscription[]
+}
+
+model PlanResourceLimit {
+  id          String            @id @default(uuid())
+  planId      String
+  resourceKey String
+  limitType   ResourceLimitType @default(LIMITED)
+  limitValue  Int? // required (>= 0) when limitType = LIMITED, otherwise null
+
+  // --- Validation Rules (Engine "Validation Rules" section) ---
+  warningThresholdValue Int? // soft-limit: show a warning banner once usage reaches this value
+  graceDays             Int     @default(0) // days allowed over the hard limit before enforcement kicks in
+  autoSuspendEnabled    Boolean @default(false) // suspend the organization once grace period elapses past the hard limit
+  autoUpgradeRecommend  Boolean @default(true) // surface an upgrade recommendation once the warning threshold is hit
+  displayUpgradeBanner  Boolean @default(true)
+
+  plan     SubscriptionPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  resource ResourceDefinition @relation(fields: [resourceKey], references: [key])
+
+  @@unique([planId, resourceKey])
+}
+
+model PlanFeatureAccess {
+  id         String       @id @default(uuid())
+  planId     String
+  featureKey String
+  state      FeatureState @default(DISABLED)
+
+  plan    SubscriptionPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature FeatureDefinition @relation(fields: [featureKey], references: [key])
+
+  @@unique([planId, featureKey])
+}
+
+model PlanUpgradePath {
+  id         String @id @default(uuid())
+  fromPlanId String
+  toPlanId   String
+
+  fromPlan SubscriptionPlan @relation("PlanUpgradeFrom", fields: [fromPlanId], references: [id], onDelete: Cascade)
+  toPlan   SubscriptionPlan @relation("PlanUpgradeTo", fields: [toPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([fromPlanId, toPlanId])
+}
+
+model PlanVersionHistory {
+  id              String         @id @default(uuid())
+  planId          String
+  version         Int
+  changeType      PlanChangeType
+  summary         String
+  changedByUserId String?
+  createdAt       DateTime       @default(now())
+
+  plan SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+}
+
+/// Platform Admin override of a feature or resource limit for a single
+/// organization - the exception path around the Feature & Limit Engine's
+/// normal plan-driven rules. Always time-boxed unless overrideType is
+/// PERMANENT; always requires a reason so the Audit trail stays meaningful.
+model EngineOverride {
+  id             String         @id @default(uuid())
+  organizationId String
+  scope          OverrideScope
+  featureKey     String?
+  resourceKey    String?
+  overrideType   OverrideType
+  status         OverrideStatus @default(ACTIVE)
+
+  // Populated when scope = FEATURE
+  featureState FeatureState?
+  // Populated when scope = RESOURCE
+  limitType    ResourceLimitType?
+  limitValue   Int?
+
+  reason          String
+  approverName    String?
+  createdByUserId String
+  createdByName   String
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  revokedByName   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feature      FeatureDefinition?  @relation(fields: [featureKey], references: [key])
+  resource     ResourceDefinition? @relation(fields: [resourceKey], references: [key])
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+/// PLT-006 Subscription Assignment & Lifecycle. status remains a free-form
+/// string (not an enum) so new payment-provider-specific states can be added
+/// without a migration: Trialing, Active, Grace_Period, Expired, Suspended,
+/// Paused, Canceled, Pending_Payment. isEnterpriseCustom independently flags a
+/// hand-negotiated deal - it can be true alongside any status.
+model OrganizationSubscription {
+  id             String    @id @default(uuid())
+  organizationId String
+  planId         String
+  status         String // Active, Past_Due, Canceled, Trialing, Grace_Period, Expired, Suspended, Paused, Pending_Payment
+  startDate      DateTime
+  endDate        DateTime
+  trialStartDate DateTime?
+  trialEndDate   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Per-organization override of the plan's default workspace experience
+  // (Engine "Workspace Experience > Per Organization Override").
+  workspaceExperienceOverride WorkspaceExperience?
+
+  // --- Lifecycle management (PLT-006) ---
+  autoRenew     Boolean   @default(true)
+  paymentMethod String? // display label only, e.g. "Card ending 4242", "Manual Invoice" - provider-agnostic
+  pausedAt      DateTime?
+  cancelledAt   DateTime?
+  cancelReason  String?
+  graceUntil    DateTime? // grace period deadline before the subscription is marked Expired
+
+  // --- Enterprise (custom, hand-negotiated deals) ---
+  isEnterpriseCustom      Boolean @default(false)
+  customPrice             Float?
+  privateNotes            String? // Platform-Admin-only, never shown to the tenant
+  dedicatedSupportContact String?
+  customSlaTerms          String?
+
+  // PLT-012 Revenue & Billing Center - how this subscription was acquired,
+  // for the "Revenue by Sales Channel" report. Free-form, not an enum.
+  salesChannel String? // e.g. Self-serve, Sales-assisted, Partner
+
+  organization      Organization          @relation(fields: [organizationId], references: [id])
+  plan              SubscriptionPlan      @relation(fields: [planId], references: [id])
+  invoices          SubscriptionInvoice[]
+  usages            SubscriptionUsage[]
+  couponRedemptions CouponRedemption[]
+}
+
+model SubscriptionInvoice {
+  id             String    @id @default(uuid())
+  subscriptionId String
+  amount         Float
+  status         String // Paid, Unpaid, Void - PLT-012 also writes Draft, Pending, Partially Paid, Refunded; "Overdue" is derived (Unpaid + dueDate < now), never stored
+  description    String? // set on manually generated invoices
+  dueDate        DateTime
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+  taxAmount      Float? // PLT-012 - backfilled on seed data via a country-based heuristic (see seed-revenue-center.js), null until then
+  taxRate        Float?
+
+  subscription OrganizationSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  payments     SubscriptionPayment[]
+}
+
+model SubscriptionPayment {
+  id             String    @id @default(uuid())
+  invoiceId      String
+  amount         Float
+  status         String // Success, Failed, Refunded, Partially_Refunded
+  paymentMethod  String // Stripe, Credit_Card, etc.
+  transactionId  String?
+  refundedAmount Float?
+  refundedAt     DateTime?
+  refundReason   String?
+  createdAt      DateTime  @default(now())
+
+  // Payment gateway audit trail (Razorpay). provider defaults to "mock" for
+  // historical/free-plan rows created before gateway integration existed.
+  provider          String  @default("mock")
+  gatewayOrderId    String?
+  gatewayPaymentId  String?
+  gatewaySignature  String?
+
+  invoice SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+/// Platform-wide coupon catalog (PLT-006 Coupon Management), managed from
+/// Commercial → Coupons. Redemption against a specific organization's
+/// subscription is tracked separately via CouponRedemption.
+model Coupon {
+  id                String    @id @default(uuid())
+  code              String    @unique
+  description       String?
+  discountType      String // PERCENTAGE | FIXED
+  discountValue     Float
+  currency          String? // required when discountType = FIXED
+  maxRedemptions    Int?
+  redemptionCount   Int       @default(0)
+  stackable         Boolean   @default(false)
+  applicablePlanIds String[]  @default([]) // empty = valid on every plan
+  validFrom         DateTime  @default(now())
+  validUntil        DateTime?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  redemptions CouponRedemption[]
+}
+
+model CouponRedemption {
+  id              String    @id @default(uuid())
+  couponId        String
+  organizationId  String
+  subscriptionId  String
+  discountApplied Float
+  redeemedAt      DateTime  @default(now())
+  removedAt       DateTime?
+
+  coupon       Coupon                   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  subscription OrganizationSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([subscriptionId])
+}
+
+/// PLT-012 Revenue & Billing Center - catalog of supported payment gateways
+/// (not an enum, same "catalog table" convention as PlatformPermissionCategory
+/// /AuditEventCategory). SubscriptionPayment/OrganizationSubscription's
+/// existing free-form paymentMethod string values (e.g. "Stripe") already
+/// match these keys - reports group by that string directly. A future
+/// gateway integration is a new catalog row, not a UI change.
+model PaymentGateway {
+  key       String   @id
+  label     String
+  icon      String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model SubscriptionUsage {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  featureName    String
+  currentValue   Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  subscription OrganizationSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+/// PLT-010 Audit Center reads/derives from this model - rows are never
+/// updated or deleted by application code (immutable event log). severity
+/// and country are optionally supplied by the caller; when omitted,
+/// AuditLogsService derives them via severity.util.ts/geo.util.ts at write
+/// time. Legacy rows with severity = null get the same heuristic applied
+/// read-side for display, so history is never mutated to backfill it.
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?
+  userId         String?
+  action         String
+  user           String
+  details        String
+  eventType      String?
+  eventCategory  String?
+  entityType     String?
+  entityId       String?
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  severity       String? // Information, Low, Medium, High, Critical - see severity.util.ts
+  correlationId  String? // groups multiple events from one business operation (PLT-010 Related Events)
+  requestId      String? // per-HTTP-request identifier, when available
+  country        String? // derived from ipAddress via geo.util.ts (local heuristic, not a real GeoIP call)
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([eventCategory])
+  @@index([severity])
+  @@index([correlationId])
+  @@index([organizationId])
+}
+
+// ============================================================================
+// PLT-010 Audit Center
+//
+// Platform-wide audit exploration, security/API views, saved searches,
+// correlation, diffing, export, retention and alerting - built on top of the
+// AuditLog model every module already writes to via AuditLogsService.logEvent.
+// Separate from ApiActivityLog below, which is high-volume request telemetry
+// (mirrors AWS CloudTrail's management-events vs data-events split).
+// ============================================================================
+
+/// Catalog of audit event categories (not hardcoded, admin-manageable) - same
+/// "catalog table not enum" pattern as PlatformPermissionCategory (PLT-008).
+/// The category filter in the UI is this catalog UNION the distinct
+/// eventCategory strings already present in AuditLog, so legacy free-form
+/// values from PLT-002..008 remain visible rather than being dropped.
+model AuditEventCategory {
+  key         String   @id
+  label       String
+  icon        String?
+  order       Int      @default(0)
+  description String?
+  isEnabled   Boolean  @default(true) // display/filter toggle only - does not suppress writes at the source
+  createdAt   DateTime @default(now())
+}
+
+/// A saved filter preset for the Audit Log Explorer. isSystem rows are the
+/// spec's 5 built-in searches (Security Events, Billing Events, Failed
+/// Logins, Feature Changes, Support Investigations); user-created ones are
+/// "My Searches".
+model AuditSavedSearch {
+  id        String   @id @default(uuid())
+  name      String
+  ownerName String? // null for system searches, shared with everyone
+  isSystem  Boolean  @default(false)
+  filters   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Singleton-style retention configuration. No auto-purge job reads this -
+/// this codebase has no cron anywhere, and silently deleting audit data is
+/// too risky to add unprompted. The Retention Policies screen instead shows
+/// a live "N events would be affected" preview computed from this config.
+model AuditRetentionSetting {
+  id                   String   @id @default(uuid())
+  defaultRetentionDays Int? // null = Unlimited
+  archiveEnabled       Boolean  @default(false)
+  categoryOverrides    Json? // { [categoryKey]: retentionDays }
+  updatedByName        String?
+  updatedAt            DateTime @default(now()) @updatedAt
+}
+
+/// Configuration-only alert rule - no email/Slack/webhook delivery exists
+/// anywhere in this codebase, so none is wired up here. The Alerts screen
+/// instead shows a live "matches in the last 24h" preview computed from
+/// `conditions` against AuditLog/ApiActivityLog.
+model AuditAlertRule {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  triggerType   String // CRITICAL_EVENT, FAILED_PAYMENT, REPEATED_LOGIN_FAILURES, HIGH_API_ERRORS, PERMISSION_CHANGES, SECURITY_RISK
+  conditions    Json // e.g. { threshold: 5, windowMinutes: 60 }
+  isEnabled     Boolean  @default(true)
+  createdByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+}
+
+/// History of exports generated from the Audit Log Explorer. The actual
+/// file is generated client-side (CSV/HTML-as-Excel/print-to-PDF/JSON, same
+/// zero-dependency technique as lib/platformUserExport.ts) - this row is
+/// just the audit trail of the export action itself.
+model AuditExportJob {
+  id              String   @id @default(uuid())
+  format          String // CSV, EXCEL, PDF, JSON
+  filters         Json?
+  requestedByName String?
+  rowCount        Int
+  createdAt       DateTime @default(now())
+}
+
+/// High-volume HTTP request telemetry, written by a global fire-and-forget
+/// interceptor (ApiActivityInterceptor) on every request app-wide. Distinct
+/// from AuditLog's curated business events. No ApiKey model exists in this
+/// codebase - actorName is the authenticated identity on the request, not a
+/// managed API key.
+model ApiActivityLog {
+  id             String   @id @default(uuid())
+  method         String
+  path           String
+  statusCode     Int
+  responseTimeMs Int
+  actorName      String?
+  actorUserId    String?
+  organizationId String?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path])
+  @@index([statusCode])
+}
+
+model Attendance {
+  id              String    @id @default(uuid())
+  organizationId  String
+  gymId           String
+  memberId        String?
+  memberName      String?
+  checkInTime     DateTime  @default(now())
+  checkOutTime    DateTime?
+  method          String
+  status          String // Granted, Denied
+  reason          String?
+  trainerNotified Boolean   @default(false)
+  recordedBy      String? // Receptionist or system name
+  deviceUsed      String? // Front Desk, Kiosk 1, Mobile App
+  checkoutMethod  String? // Scan, Manual, Auto-closing
+  visitLimitType  String? // Unlimited, Limited
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  gym          Gym          @relation(fields: [gymId], references: [id])
+  member       Member?      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+enum DeviceType {
+  QR_SCANNER
+  FINGERPRINT
+  RFID
+  FACE_CAMERA
+  TURNSTILE
+  BARCODE
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+}
+
+model Device {
+  id             String       @id @default(uuid())
+  organizationId String
+  gymId          String
+  name           String
+  type           DeviceType
+  status         DeviceStatus @default(OFFLINE)
+  lastHeartbeat  DateTime?
+  lastSync       DateTime?
+  version        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  gym          Gym          @relation(fields: [gymId], references: [id])
+}
+
+model Exercise {
+  id               String   @id @default(uuid())
+  organizationId   String? // Scoped to organization if custom; null if Official/External/Community
+  name             String
+  description      String?
+  instructions     String[] // Step-by-step instructions
+  primaryMuscle    String
+  secondaryMuscles String[]
+  equipment        String
+  difficulty       String
+  category         String // Strength, Cardio, Mobility, Flexibility, HIIT, Bodybuilding, etc.
+  movementPattern  String? // Push, Pull, Hinge, Squat, Carry, etc.
+  source           String // Official, External, Custom, Community
+  sourceId         String? // External API identifier (e.g. ExerciseDB, WGER)
+  rating           Float    @default(0.0)
+  downloads        Int      @default(0)
+  creator          String? // Creator display name for Community exercises
+  verified         Boolean  @default(false)
+  gifUrl           String?
+  videoUrl         String?
+  safetyTips       String[]
+  trainerNotes     String?
+  caloriesBurned   Float?
+  metValue         Float?
+  visibility       String   @default("Private") // Public, Private, Unlisted
+  useCount         Int      @default(0)
+  assignCount      Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  favorites    ExerciseFavorite[]
+
+  @@index([organizationId])
+  @@index([source])
+}
+
+model ExerciseFavorite {
+  id         String   @id @default(uuid())
+  userId     String
+  exerciseId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, exerciseId])
+}
+
+model MetadataItem {
+  id             String    @id @default(uuid())
+  organizationId String? // Null for system-wide defaults, non-null for custom organization metadata
+  type           String // Category, Muscle, Equipment, Difficulty, MovementPattern, BodyRegion, Tag
+  name           String
+  description    String?
+  icon           String?
+  image          String?
+  color          String? // Color code / class for badges (e.g. 'green', 'blue', 'orange')
+  status         String    @default("Active") // Active, Archived
+  isSystem       Boolean   @default(false)
+  usageCount     Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([type])
+}
+
+model Workout {
+  id             String  @id @default(uuid())
+  organizationId String
+  creatorId      String?
+  name           String
+  type           String  @default("Strength")
+  difficulty     String  @default("Intermediate")
+  duration       Int     @default(45)
+  calories       Int     @default(300)
+  visibility     String  @default("Organization") // Private, Organization, Community
+  status         String  @default("Draft") // Draft, Published, Archived
+  isTemplate     Boolean @default(true)
+  isFavorite     Boolean @default(false)
+  version        Int     @default(1)
+  notes          String?
+  memberNotes    String?
+  prepNotes      String?
+  equipmentNotes String?
+
+  structure Json? // Array of sections, circuits, exercises with their configs
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User?            @relation("WorkoutCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  versions     WorkoutVersion[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model WorkoutVersion {
+  id            String   @id @default(uuid())
+  workoutId     String
+  versionNumber Int
+  name          String
+  notes         String?
+  structure     Json?
+  createdAt     DateTime @default(now())
+
+  workout Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+
+  @@index([workoutId])
+}
+
+// -----------------------------------------------------------------------------
+// PLATFORM SUPPORT (PLT-005 Organization 360 — Support workspace)
+// -----------------------------------------------------------------------------
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  // --- PLT-011 additions - enum growth is additive/backward-compatible ---
+  NEW
+  WAITING_FOR_CUSTOMER
+  ESCALATED
+  CANCELLED
+}
+
+/// URGENT is kept as the underlying enum value for backward compatibility
+/// (renaming an enum value already referenced by existing rows isn't safe);
+/// PLT-011's UI labels it "Critical" everywhere, matching the spec exactly.
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+/// Support tickets raised for / by a customer organization. Originally
+/// created only from the Organization 360 Support tab (PLT-005) - PLT-011
+/// adds a platform-wide workspace on top of the same table (one ticket
+/// table, two entry points, same pattern AuditLog already uses for its
+/// tenant-scoped vs platform-scoped controllers). Existing rows and the
+/// Org 360 create/read flow are untouched.
+model SupportTicket {
+  id                  String                @id @default(uuid())
+  ticketNumber        Int                   @unique @default(autoincrement())
+  organizationId      String
+  subject             String
+  description         String?
+  status              SupportTicketStatus   @default(OPEN)
+  priority            SupportTicketPriority @default(MEDIUM)
+  category            String? // Billing, Subscription, Members, Attendance, Training Studio, Nutrition, Reports, Authentication, API, Performance, Bug Report, Feature Request, General
+  assignedEngineer    String? // display-name cache, refreshed alongside assignedEngineerId
+  assignedEngineerId  String?
+  satisfactionScore   Int? // CSAT 1-5, populated once resolved
+  satisfactionComment String?
+  internalNotes       String? // legacy single blob (PLT-005) - PLT-011 internal notes are SupportTicketMessage rows with isInternal = true
+  createdByName       String
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  resolvedAt          DateTime?
+  firstRespondedAt    DateTime? // set on the first non-internal agent message - drives Average Response Time
+
+  organization         Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedEngineerUser PlatformAdminUser?        @relation(fields: [assignedEngineerId], references: [id])
+  messages             SupportTicketMessage[]
+  attachments          SupportTicketAttachment[]
+  escalations          SupportEscalation[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([assignedEngineerId])
+  @@index([priority])
+}
+
+/// The real Conversation thread (PLT-011) - covers both customer-facing
+/// Support Messages and internal-only notes/private messages in one model,
+/// distinguished by isInternal. authorUserId is set for staff-authored
+/// messages (resolvable against PlatformAdminUser); customer-authored
+/// messages only have authorName.
+model SupportTicketMessage {
+  id           String   @id @default(uuid())
+  ticketId     String
+  authorType   String // Customer, Agent, System
+  authorName   String
+  authorUserId String?
+  body         String
+  isInternal   Boolean  @default(false)
+  mentions     String[] @default([])
+  createdAt    DateTime @default(now())
+
+  ticket      SupportTicket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  attachments SupportTicketAttachment[]
+
+  @@index([ticketId])
+}
+
+/// A file attached either directly to a ticket or to a specific message.
+/// Stored on local disk under apps/api/uploads/support/ and served via
+/// static middleware - documented as an honest MVP, not production-grade
+/// cloud storage (no such infra exists anywhere in this codebase).
+model SupportTicketAttachment {
+  id             String   @id @default(uuid())
+  ticketId       String
+  messageId      String?
+  fileName       String
+  storagePath    String
+  mimeType       String
+  sizeBytes      Int
+  uploadedByName String
+  createdAt      DateTime @default(now())
+
+  ticket  SupportTicket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message SupportTicketMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+}
+
+/// Tracks a ticket's movement up the spec's escalation ladder (Support ->
+/// Engineering -> Operations -> Finance -> Platform Admin). Multiple rows
+/// per ticket if it escalates more than once.
+model SupportEscalation {
+  id            String    @id @default(uuid())
+  ticketId      String
+  fromLevel     String
+  toLevel       String
+  reason        String
+  ownerName     String?
+  status        String    @default("Open") // Open, Resolved
+  resolution    String?
+  createdByName String
+  createdAt     DateTime  @default(now())
+  resolvedAt    DateTime?
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+/// SLA targets per priority - catalog, not hardcoded, admin-configurable.
+/// Computed against on read (no cron in this codebase); drives both the
+/// per-ticket "SLA Remaining" column and the SLA Dashboard.
+model SupportSlaPolicy {
+  id                   String                @id @default(uuid())
+  priority             SupportTicketPriority @unique
+  firstResponseMinutes Int
+  resolutionMinutes    Int
+  updatedAt            DateTime              @default(now()) @updatedAt
+}
+
+/// PLT-011 Knowledge Base - Articles, FAQs, Troubleshooting Guides and
+/// Internal Documentation all share this shape, distinguished by `type`.
+model KnowledgeBaseArticle {
+  id            String   @id @default(uuid())
+  title         String
+  slug          String   @unique
+  category      String
+  body          String
+  type          String // Article, FAQ, Troubleshooting, Internal
+  tags          String[] @default([])
+  viewCount     Int      @default(0)
+  isPublished   Boolean  @default(true)
+  createdByName String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+}
+
+/// PLT-015 Global Settings - generic category-keyed config store. A row only
+/// exists once a value has been saved away from its hardcoded default (see
+/// DEFAULTS in platform-global-settings.service.ts); reads merge stored rows
+/// over the default map, so every category always resolves fully even before
+/// first save. Value is untyped Json because fields span strings, booleans,
+/// numbers and arrays (e.g. supportedLanguages) across ten unrelated categories.
+model PlatformSetting {
+  id              String   @id @default(uuid())
+  category        String
+  key             String
+  value           Json
+  updatedByUserId String?
+  updatedByName   String?
+  updatedAt       DateTime @default(now()) @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@unique([category, key])
+  @@index([category])
+}
+
+/// One append-only snapshot per successful category save (full resulting
+/// state, not a diff). "Restore this version" re-applies an old snapshot as
+/// a new save, so history stays undo-safe rather than being mutated in place.
+model PlatformSettingVersion {
+  id              String   @id @default(uuid())
+  category        String
+  snapshot        Json
+  changeNote      String?
+  changedByUserId String?
+  changedByName   String?
+  createdAt       DateTime @default(now())
+
+  @@index([category, createdAt])
+}
+
+/// PLT-014 Notifications Center - delivery channel catalog, same
+/// {key,label,icon,isActive,order} shape as PaymentGateway (PLT-012). A
+/// future FCM/APNs/SMTP/Twilio integration is a new catalog row or a
+/// provider swap behind an existing key, never a UI change.
+model NotificationChannel {
+  key       String   @id
+  label     String
+  icon      String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+/// Reusable message content. `variables` records which {{tokens}} the body
+/// actually uses - previewTemplate() substitutes them against sample values,
+/// never a live send.
+model NotificationTemplate {
+  id            String   @id @default(uuid())
+  title         String
+  category      String
+  channel       String
+  subject       String?
+  body          String
+  variables     String[] @default([])
+  status        String   @default("Draft")
+  createdByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  campaigns NotificationCampaign[]
+}
+
+/// A campaign resolves a real audience (Organizations/Owners/Employees/
+/// Members/PlatformAdminUsers) and fans out into Notification rows. No cron
+/// exists in this codebase (see AuditRetentionSetting's doc comment) -
+/// scheduledFor/nextRunAt are processed lazily by
+/// PlatformNotificationsService.processDueCampaigns(), called at the top of
+/// this module's own read endpoints, same convention as
+/// PlatformAuthorizationService.expireStaleAssignments().
+model NotificationCampaign {
+  id                 String    @id @default(uuid())
+  name               String
+  notificationType   String
+  channel            String
+  templateId         String?
+  template           NotificationTemplate? @relation(fields: [templateId], references: [id])
+  bodyOverride       String?
+  audienceType       String
+  audienceFilter     Json?
+  priority           String    @default("Normal")
+  status             String    @default("Draft")
+  scheduleType       String    @default("NOW")
+  scheduledFor       DateTime?
+  recurringFrequency String?
+  nextRunAt          DateTime?
+  expiresAt          DateTime?
+  timezone           String    @default("UTC")
+  createdByName      String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+  sentAt             DateTime?
+  cancelledAt        DateTime?
+
+  notifications Notification[]
+
+  @@index([status])
+}
+
+/// The one fanned-out per-recipient-channel row - doubles as both the
+/// "Notification List" and "Delivery Logs" data source (different filters/
+/// columns over the same table, not a duplicated log). Delivery outcome is
+/// a documented simulated random outcome (see SIMULATED_FAILURE_RATE in
+/// platform-notifications.service.ts) - no real SMTP/Twilio/FCM/APNs
+/// integration exists.
+model Notification {
+  id               String    @id @default(uuid())
+  campaignId       String?
+  campaign         NotificationCampaign? @relation(fields: [campaignId], references: [id])
+  title            String
+  body             String
+  notificationType String
+  channel          String
+  priority         String    @default("Normal")
+  status           String    @default("Draft")
+  recipientType    String
+  recipientId      String?
+  recipientName    String?
+  organizationId   String?
+  scheduledFor     DateTime?
+  sentAt           DateTime?
+  deliveredAt      DateTime?
+  readAt           DateTime?
+  failureReason    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+
+  @@index([status])
+  @@index([campaignId])
+  @@index([organizationId])
+}
+
+/// PLT-018 Automation & Background Jobs - delivery-queue catalog, same
+/// {key,label,icon,isActive,order} shape as PaymentGateway/NotificationChannel.
+/// A future BullMQ/Redis/RabbitMQ/Kafka/cloud-scheduler integration is a new
+/// catalog row or an executor swap behind an existing key, never a UI change.
+model AutomationQueue {
+  key       String   @id
+  label     String
+  icon      String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+/// A schedulable job/workflow definition. No cron parsing library exists in
+/// this codebase - cronExpression is stored/displayed as reference metadata
+/// only for scheduleType = CUSTOM_CRON, not evaluated; see computeNextRun()
+/// in platform-automation.service.ts. workflowType marks the 10 spec-named
+/// canonical business processes; null means a generic job. status is the
+/// job DEFINITION's on/off state, distinct from AutomationJobRun.status
+/// which is a single execution's outcome.
+model AutomationJob {
+  id                String    @id @default(uuid())
+  name              String
+  category          String
+  workflowType      String?
+  description       String?
+  scheduleType      String
+  cronExpression    String?
+  status            String    @default("Active")
+  queueKey          String
+  nextRunAt         DateTime?
+  lastRunAt         DateTime?
+  lastRunStatus     String?
+  lastRunDurationMs Int?
+  createdByName     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
+
+  runs AutomationJobRun[]
+
+  @@index([status])
+  @@index([category])
+}
+
+/// One row per execution. No real worker runs actual job logic - status/
+/// duration/failureReason are a documented simulated outcome (see
+/// simulateRun() in platform-automation.service.ts), same honesty pattern
+/// as PLT-014's Notification delivery simulation.
+model AutomationJobRun {
+  id            String        @id @default(uuid())
+  jobId         String
+  job           AutomationJob @relation(fields: [jobId], references: [id])
+  queueKey      String
+  status        String
+  triggeredBy   String        @default("SCHEDULE")
+  startedAt     DateTime?
+  completedAt   DateTime?
+  durationMs    Int?
+  failureReason String?
+  log           String?
+  ignoredAt     DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([jobId])
+  @@index([status])
+  @@index([queueKey])
+}
+
+/// Per-workspace expiry reminder rule. triggerDays > 0 = N days before expiry;
+/// < 0 = N days after expiry. channels is the list of delivery channels enabled
+/// for this rule (subset of what the platform admin allows for this org).
+model ExpiryReminderRule {
+  id               String       @id @default(uuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  label            String
+  triggerDays      Int
+  channels         String[]
+  templateSms      String?
+  templateWhatsApp String?
+  templateEmail    String?
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  logs ExpiryReminderLog[]
+
+  @@index([organizationId])
+}
+
+/// One row per reminder dispatched to a single member subscription. Delivery
+/// outcome is a simulated random result (same SIMULATED_FAILURE_RATE pattern
+/// as platform-notifications.service.ts) — no real SMS/WhatsApp/SMTP wired.
+model ExpiryReminderLog {
+  id             String              @id @default(uuid())
+  organizationId String
+  ruleId         String?
+  rule           ExpiryReminderRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  subscriptionId String
+  memberId       String
+  memberName     String?
+  channel        String
+  triggerDays    Int
+  status         String              @default("Sent")
+  failureReason  String?
+  sentAt         DateTime            @default(now())
+
+  @@index([organizationId, sentAt])
+}
+
+/// Platform-admin-controlled per-org channel configuration. Controls which
+/// delivery channels the workspace may use for expiry reminders and the sender
+/// identities that appear on outbound messages. One row per org (upserted on
+/// first save). monthlyLimit null = unlimited; non-null enables future quota
+/// enforcement via the feature engine.
+model OrgReminderChannelConfig {
+  organizationId   String       @id
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  smsEnabled       Boolean      @default(true)
+  whatsAppEnabled  Boolean      @default(true)
+  emailEnabled     Boolean      @default(true)
+  smsSenderId      String?
+  whatsAppSenderId String?
+  emailFromName    String?
+  emailFromAddress String?
+  monthlyLimit     Int?
+  updatedAt        DateTime     @updatedAt
+  updatedByName    String?
+}

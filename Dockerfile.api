@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1
+# =============================================================================
+# apps/api — NestJS + Prisma (PostgreSQL)
+# Debian-based (node:20-slim) because Prisma's query engine is most reliable on
+# glibc. Build context is the monorepo root (npm workspaces).
+# =============================================================================
+
+# ---- Builder -----------------------------------------------------------------
+FROM node:20-slim AS builder
+# Prisma needs openssl at both generate and runtime.
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+# Copy the whole workspace (.dockerignore keeps node_modules/.next/dist/env out)
+COPY . .
+
+# Install every workspace dependency from the lockfile.
+RUN npm ci
+
+# Generate the Prisma client (query engine matched to this image's platform).
+RUN npm run generate --workspace @gym/database
+
+# Compile the NestJS app (tsc -> apps/api/dist).
+RUN npm run build --workspace api
+
+# The @gym/database workspace package ships TypeScript source (main: index.ts),
+# which `node` cannot require at runtime. Compile it to CommonJS and repoint
+# `main` so the built API can require it in production.
+RUN cd packages/database \
+    && npx tsc index.ts --module commonjs --moduleResolution node \
+         --esModuleInterop --skipLibCheck --declaration false --outDir . \
+    && npm pkg set main=index.js
+
+# ---- Runner ------------------------------------------------------------------
+FROM node:20-slim AS runner
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=5000
+
+# Root node_modules (includes @prisma/client, the generated engine, prisma CLI,
+# and the @gym/database workspace symlink) plus the built app and db package.
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+
+COPY docker/api-entrypoint.sh /usr/local/bin/api-entrypoint.sh
+RUN chmod +x /usr/local/bin/api-entrypoint.sh
+
+EXPOSE 5000
+WORKDIR /app/apps/api
+ENTRYPOINT ["/usr/local/bin/api-entrypoint.sh"]

@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+# =============================================================================
+# apps/platform — platform admin (Next.js) — served at admin.gymflow.io
+# =============================================================================
+
+# ---- Builder -----------------------------------------------------------------
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN npm ci
+
+# NEXT_PUBLIC_* are inlined at build time.
+ARG NEXT_PUBLIC_API_URL
+# Empty string => no basePath => the admin app serves at the domain root
+# (admin.gymflow.io/...). Leave unset to keep the legacy /platform prefix.
+ARG NEXT_PUBLIC_BASE_PATH=""
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
+
+# This app has no public/ dir in the repo; ensure it exists so the runtime
+# COPY below never fails.
+RUN mkdir -p apps/platform/public
+
+RUN npm run build --workspace platform
+
+# ---- Runner ------------------------------------------------------------------
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3300
+ENV HOSTNAME=0.0.0.0
+
+COPY --from=builder /app/apps/platform/.next/standalone ./
+COPY --from=builder /app/apps/platform/.next/static ./apps/platform/.next/static
+COPY --from=builder /app/apps/platform/public ./apps/platform/public
+
+EXPOSE 3300
+CMD ["node", "apps/platform/server.js"]

@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "GymFlow Staff",
+    "slug": "gymflow-staff",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "gymflow-staff",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gymflow.staff"
+    },
+    "android": {
+      "package": "com.gymflow.staff",
+      "adaptiveIcon": {
+        "backgroundColor": "#1E293B",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "expo-splash-screen",
+      "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow GymFlow Staff to access your camera to scan member QR codes."
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}

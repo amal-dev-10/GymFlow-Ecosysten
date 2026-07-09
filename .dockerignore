@@ -1,0 +1,28 @@
+# Dependencies & build artifacts (rebuilt inside the image)
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+.turbo
+
+# Env files — secrets are injected at runtime via docker-compose, never baked in
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local / editor / VCS
+.git
+.gitignore
+**/.DS_Store
+**/*.log
+npm-debug.log*
+
+# NOTE: apps/mobile and apps/device-simulator are intentionally NOT ignored —
+# npm workspaces / npm ci require every workspace package.json declared in
+# package-lock.json to be present in the build context.
+
+# Docker files themselves
+Dockerfile*
+docker-compose*.yml
+docker/
+DOCKER.md
