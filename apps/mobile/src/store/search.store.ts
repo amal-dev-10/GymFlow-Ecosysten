@@ -15,10 +15,11 @@ export interface SearchResultItem {
 
 interface SearchState {
   isOpen: boolean;
+  initialCategory?: string;
   recentSearches: SearchResultItem[];
   pinnedFavorites: SearchResultItem[];
   
-  openSearch: () => void;
+  openSearch: (initialCategory?: string) => void;
   closeSearch: () => void;
   addRecent: (item: SearchResultItem) => void;
   removeRecent: (id: string) => void;
@@ -30,10 +31,11 @@ export const useSearchStore = create<SearchState>()(
   persist(
     (set, get) => ({
       isOpen: false,
+      initialCategory: 'all',
       recentSearches: [],
       pinnedFavorites: [],
 
-      openSearch: () => set({ isOpen: true }),
+      openSearch: (category = 'all') => set({ isOpen: true, initialCategory: category }),
       closeSearch: () => set({ isOpen: false }),
 
       addRecent: (item) => {

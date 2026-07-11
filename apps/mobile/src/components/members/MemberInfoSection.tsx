@@ -30,14 +30,14 @@ export const MemberInfoSection: React.FC<Props> = ({
   const visibleRows = rows.filter((r) => r.value !== null && r.value !== undefined && r.value !== '—' && r.value !== '');
 
   return (
-    <View style={{ marginBottom: spacing.lg }}>
+    <View style={{ marginBottom: spacing.lg, paddingHorizontal: spacing.md }}>
       <SectionHeader
         title={title}
         actionLabel={actionLabel}
         onActionPress={onActionPress}
         style={{ paddingHorizontal: spacing.lg }}
       />
-      <Card style={{ marginHorizontal: spacing.lg }}>
+      <Card style={{}}>
         {visibleRows.length === 0 && (
           <Text style={{ color: colors.textMuted, fontSize: typography.sizes.body.fontSize }}>
             {emptyText || 'No information available.'}

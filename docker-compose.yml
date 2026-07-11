@@ -33,13 +33,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
+    ports:
+      - "5000:5000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-gymflow}:${POSTGRES_PASSWORD:-gymflow_secret}@postgres:5432/${POSTGRES_DB:-gymflow}?schema=public
       JWT_SECRET: ${JWT_SECRET:-please_change_this_in_production}
       PORT: "5000"
       NODE_ENV: production
       # Restrict browser CORS to the two frontend origins.
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://gymflow.io,http://admin.gymflow.io}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://gymflow.io,http://admin.gymflow.io,http://localhost:3000,http://localhost:3300}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
     depends_on:
@@ -52,8 +54,10 @@ services:
       context: .
       dockerfile: Dockerfile.web
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api.gymflow.io}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
         NEXT_PUBLIC_RAZORPAY_KEY_ID: ${NEXT_PUBLIC_RAZORPAY_KEY_ID:-}
+    ports:
+      - "3000:3000"
     depends_on:
       - api
     restart: unless-stopped
@@ -63,9 +67,11 @@ services:
       context: .
       dockerfile: Dockerfile.platform
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api.gymflow.io}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
         # Empty => admin app serves at the subdomain root (no /platform prefix).
         NEXT_PUBLIC_BASE_PATH: ""
+    ports:
+      - "3300:3300"
     depends_on:
       - api
     restart: unless-stopped

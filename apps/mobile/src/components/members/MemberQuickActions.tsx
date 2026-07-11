@@ -1,28 +1,22 @@
 import React from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, Linking, Alert } from 'react-native';
-import Animated, { FadeInRight } from 'react-native-reanimated';
+import { StyleSheet, Text, View, Pressable, Alert } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import {
   LogIn,
   LogOut,
-  CreditCard,
-  Snowflake,
-  RefreshCw,
-  ArrowUpCircle,
-  Dumbbell,
-  Salad,
   Ruler,
-  CalendarCheck,
-  History,
-  Phone,
-  MessageCircle,
   Mail,
-  UserPen,
-  UserX,
-  QrCode,
+  Check,
+  Award,
+  RefreshCw,
+  Snowflake,
+  Play,
+  CreditCard,
 } from 'lucide-react-native';
 import { useTheme } from '../../theme/theme';
 import { useHaptics } from '../../hooks/useHaptics';
 import { useWorkspace } from '../../providers/WorkspaceProvider';
+import { Linking } from 'react-native';
 import type { Feature } from '../../lib/permissions';
 
 interface QuickAction {
@@ -30,7 +24,9 @@ interface QuickAction {
   label: string;
   onPress: () => void;
   feature?: Feature;
-  destructive?: boolean;
+  color: string;
+  bgColor: string;
+  disabled?: boolean;
 }
 
 interface Props {
@@ -38,15 +34,16 @@ interface Props {
   phoneNumber?: string;
   email?: string | null;
   isInsideGym?: boolean;
+  hasCheckedInToday?: boolean;
+  hasActivePlan?: boolean;
+  isFrozen?: boolean;
+  hasDues?: boolean;
+  duesAmount?: number;
   onCheckIn: () => void;
   onCheckOut: () => void;
-  onEdit: () => void;
-  onQR: () => void;
-  onDeactivate: () => void;
-}
-
-function comingSoon(name: string) {
-  Alert.alert(name, `${name} will be available in a dedicated module — coming soon.`);
+  onSellMembership?: () => void;
+  onFreezeMembership?: () => void;
+  onCollectDues?: () => void;
 }
 
 export const MemberQuickActions: React.FC<Props> = ({
@@ -54,90 +51,149 @@ export const MemberQuickActions: React.FC<Props> = ({
   phoneNumber,
   email,
   isInsideGym,
+  hasCheckedInToday,
+  hasActivePlan,
+  isFrozen,
+  hasDues,
+  duesAmount,
   onCheckIn,
   onCheckOut,
-  onEdit,
-  onQR,
-  onDeactivate,
+  onSellMembership,
+  onFreezeMembership,
+  onCollectDues,
 }) => {
-  const { colors, typography, spacing, radius } = useTheme();
+  const { colors, spacing, radius } = useTheme();
   const { lightImpact } = useHaptics();
   const { can } = useWorkspace();
 
-  const callMember = () => {
-    if (phoneNumber) Linking.openURL(`tel:${phoneNumber}`);
-  };
-  const whatsappMember = () => {
-    if (phoneNumber) {
-      const cleaned = phoneNumber.replace(/\D/g, '');
-      Linking.openURL(`https://wa.me/${cleaned}`);
-    }
-  };
-  const emailMember = () => {
-    if (email) Linking.openURL(`mailto:${email}`);
-  };
+  // Attendance action
+  let attendanceAction: QuickAction;
+  if (isInsideGym) {
+    attendanceAction = {
+      icon: <LogOut size={20} color="#F59E0B" />,
+      label: 'Check Out',
+      onPress: onCheckOut,
+      feature: 'mark-attendance' as Feature,
+      color: '#F59E0B',
+      bgColor: '#F59E0B18',
+    };
+  } else if (hasCheckedInToday) {
+    attendanceAction = {
+      icon: <Check size={20} color="#22C55E" />,
+      label: 'Checked In',
+      onPress: () => {},
+      feature: 'mark-attendance' as Feature,
+      color: '#22C55E',
+      bgColor: '#22C55E18',
+      disabled: true,
+    };
+  } else {
+    attendanceAction = {
+      icon: <LogIn size={20} color="#22C55E" />,
+      label: 'Check In',
+      onPress: onCheckIn,
+      feature: 'mark-attendance' as Feature,
+      color: '#22C55E',
+      bgColor: '#22C55E18',
+    };
+  }
 
   const actions: QuickAction[] = [
-    // Attendance
-    ...(isInsideGym
-      ? [{ icon: <LogOut size={18} color={colors.warning} />, label: 'Check Out', onPress: onCheckOut, feature: 'mark-attendance' as Feature }]
-      : [{ icon: <LogIn size={18} color={colors.success} />, label: 'Check In', onPress: onCheckIn, feature: 'mark-attendance' as Feature }]),
-    // QR
-    { icon: <QrCode size={18} color={colors.primary} />, label: 'QR Code', onPress: onQR },
-    // Communication
-    ...(phoneNumber ? [{ icon: <Phone size={18} color={colors.info} />, label: 'Call', onPress: callMember }] : []),
-    ...(phoneNumber ? [{ icon: <MessageCircle size={18} color={colors.success} />, label: 'WhatsApp', onPress: whatsappMember }] : []),
-    ...(email ? [{ icon: <Mail size={18} color={colors.primary} />, label: 'Email', onPress: emailMember }] : []),
-    // Membership stubs
-    { icon: <CreditCard size={18} color={colors.primary} />, label: 'Payment', onPress: () => comingSoon('Collect Payment'), feature: 'record-payment' as Feature },
-    { icon: <RefreshCw size={18} color={colors.info} />, label: 'Renew', onPress: () => comingSoon('Renew Membership'), feature: 'create-membership' as Feature },
-    { icon: <Snowflake size={18} color={colors.info} />, label: 'Freeze', onPress: () => comingSoon('Freeze Membership'), feature: 'freeze-membership' as Feature },
-    { icon: <ArrowUpCircle size={18} color={colors.primary} />, label: 'Upgrade', onPress: () => comingSoon('Upgrade Membership'), feature: 'create-membership' as Feature },
-    // Trainer/Workout/Diet stubs
-    { icon: <Dumbbell size={18} color={colors.primary} />, label: 'Workout', onPress: () => comingSoon('Assign Workout'), feature: 'assign-workout' as Feature },
-    { icon: <Salad size={18} color={colors.success} />, label: 'Diet', onPress: () => comingSoon('Assign Diet'), feature: 'assign-diet' as Feature },
-    { icon: <Ruler size={18} color={colors.info} />, label: 'Measure', onPress: () => comingSoon('Record Measurement'), feature: 'record-measurement' as Feature },
-    // Edit
-    { icon: <UserPen size={18} color={colors.text} />, label: 'Edit', onPress: onEdit, feature: 'manage-members' as Feature },
-    // Deactivate
-    { icon: <UserX size={18} color={colors.error} />, label: 'Deactivate', onPress: onDeactivate, feature: 'manage-members' as Feature, destructive: true },
+    attendanceAction,
+
+    // Sell / Renew Membership
+    ...(onSellMembership ? [{
+      icon: hasActivePlan
+        ? <RefreshCw size={20} color={colors.primary} />
+        : <Award size={20} color={colors.primary} />,
+      label: hasActivePlan ? 'Renew' : 'Sell Plan',
+      onPress: onSellMembership,
+      feature: 'create-membership' as Feature,
+      color: colors.primary,
+      bgColor: colors.primary + '15',
+    }] : []),
+
+    // Collect Dues (only if there are outstanding dues)
+    ...(hasDues && onCollectDues ? [{
+      icon: <CreditCard size={20} color="#EF4444" />,
+      label: duesAmount ? `₹${duesAmount.toLocaleString('en-IN')}` : 'Collect',
+      onPress: onCollectDues,
+      feature: 'record-payment' as Feature,
+      color: '#EF4444',
+      bgColor: '#EF444418',
+    }] : []),
+
+    // Freeze / Reactivate
+    ...(onFreezeMembership && hasActivePlan ? [{
+      icon: isFrozen
+        ? <Play size={20} color="#3B82F6" />
+        : <Snowflake size={20} color="#3B82F6" />,
+      label: isFrozen ? 'Unfreeze' : 'Freeze',
+      onPress: onFreezeMembership,
+      feature: 'freeze-membership' as Feature,
+      color: '#3B82F6',
+      bgColor: '#3B82F618',
+    }] : []),
+
+    // Email
+    ...(email ? [{
+      icon: <Mail size={20} color="#8B5CF6" />,
+      label: 'Email',
+      onPress: () => Linking.openURL(`mailto:${email}`),
+      color: '#8B5CF6',
+      bgColor: '#8B5CF618',
+    }] : []),
+
+    // Measure
+    {
+      icon: <Ruler size={20} color="#EC4899" />,
+      label: 'Measure',
+      onPress: () => Alert.alert('Measure', 'Record Measurement will be available in a dedicated module — coming soon.'),
+      feature: 'record-measurement' as Feature,
+      color: '#EC4899',
+      bgColor: '#EC489918',
+    },
   ];
 
-  // Filter to only actions the current role can perform
   const visible = actions.filter((a) => !a.feature || can(a.feature));
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={[styles.scroll, { paddingHorizontal: spacing.lg, gap: spacing.sm }]}
-    >
+    <View style={[styles.container, { paddingHorizontal: spacing.lg, gap: spacing.sm }]}>
       {visible.map((action, i) => (
-        <Animated.View key={action.label} entering={FadeInRight.delay(i * 30).duration(250)}>
+        <Animated.View
+          key={action.label}
+          entering={FadeInUp.delay(i * 40).duration(280)}
+          style={styles.actionWrapper}
+        >
           <Pressable
+            disabled={action.disabled}
             onPress={() => {
               lightImpact();
               action.onPress();
             }}
             accessibilityRole="button"
             accessibilityLabel={action.label}
-            style={[
-              styles.actionChip,
+            style={({ pressed }) => [
+              styles.actionCard,
               {
-                backgroundColor: action.destructive ? colors.errorLight : colors.surfaceElevated,
-                borderRadius: radius.md,
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm,
+                backgroundColor: action.bgColor,
+                borderColor: action.color + '35',
+                borderRadius: radius.lg,
+                opacity: action.disabled ? 0.55 : pressed ? 0.75 : 1,
               },
             ]}
           >
-            {action.icon}
+            <View style={[styles.iconCircle, { backgroundColor: action.color + '22' }]}>
+              {action.icon}
+            </View>
             <Text
+              numberOfLines={1}
               style={{
-                color: action.destructive ? colors.error : colors.text,
-                fontSize: typography.sizes.overline.fontSize,
-                fontWeight: '600',
-                marginTop: 4,
+                color: action.color,
+                fontSize: 11,
+                fontWeight: '700',
+                marginTop: 6,
+                textAlign: 'center',
               }}
             >
               {action.label}
@@ -145,17 +201,32 @@ export const MemberQuickActions: React.FC<Props> = ({
           </Pressable>
         </Animated.View>
       ))}
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  scroll: {
-    paddingVertical: 4,
+  container: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
-  actionChip: {
+  actionWrapper: {
+    flexGrow: 1,
+    minWidth: 72,
+    maxWidth: '25%',
+  },
+  actionCard: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 64,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

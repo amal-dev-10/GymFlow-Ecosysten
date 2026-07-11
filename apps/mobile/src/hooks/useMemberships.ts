@@ -39,9 +39,16 @@ export function useCreateMembership() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['memberships'] });
+      // Member list + detail surface the active membership/status.
+      queryClient.invalidateQueries({ queryKey: ['members'] });
       if (variables.memberId) {
         queryClient.invalidateQueries({ queryKey: ['members', 'detail', variables.memberId] });
       }
+      // Billing reads off the same subscription ledger a purchase writes to.
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingDues'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['billingDashboard'] });
     },
   });
 }
@@ -64,6 +71,14 @@ export function useUpdateMembership() {
   });
 }
 
+/** All freeze records for the org — used to find the active freeze on a sub. */
+export function useFreezes() {
+  return useQuery({
+    queryKey: ['freezes'],
+    queryFn: () => membershipsApi.listFreezes(),
+  });
+}
+
 export function useFreezeMembership() {
   const queryClient = useQueryClient();
   const { isOffline } = useNetworkStatus();
@@ -77,6 +92,8 @@ export function useFreezeMembership() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['memberships'] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['freezes'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'freezes'] });
     },
   });
@@ -85,9 +102,11 @@ export function useFreezeMembership() {
 export function useReactivateMembership() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => membershipsApi.reactivateEarly(id),
+    mutationFn: (freezeId: string) => membershipsApi.reactivateEarly(freezeId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['memberships'] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['freezes'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'freezes'] });
     },
   });
@@ -97,5 +116,22 @@ export function useMembershipPlans() {
   return useQuery({
     queryKey: ['memberships', 'plans'],
     queryFn: () => membershipsApi.listPlans(),
+  });
+}
+
+export function useCreateMembershipPlan() {
+  const queryClient = useQueryClient();
+  const { isOffline } = useNetworkStatus();
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      if (isOffline) {
+        enqueue({ type: 'create-membership-plan', payload });
+        return { id: `offline-${Date.now()}`, ...payload };
+      }
+      return membershipsApi.createPlan(payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['memberships', 'plans'] });
+    },
   });
 }

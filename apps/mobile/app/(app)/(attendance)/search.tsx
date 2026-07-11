@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTheme } from '../../../src/theme/theme';
@@ -19,9 +19,9 @@ export default function AttendanceSearchScreen() {
   const { success, error, mediumImpact } = useHaptics();
   const router = useRouter();
 
-  // Use the flat list or paginated list based on what useMembers provides. Assuming useMembers takes (homeGymId, search)
-  const { data: membersPage, isLoading } = useMembers(activeGymId || '', searchQuery);
-  const members = membersPage?.data || [];
+  // useMembers(search, filters) — the active gym is resolved inside the hook.
+  const { data: membersPage, isLoading } = useMembers(searchQuery);
+  const members = useMemo(() => membersPage?.pages.flatMap((p) => p.data) || [], [membersPage]);
 
   const checkInMutation = useCheckIn();
 
@@ -35,7 +35,7 @@ export default function AttendanceSearchScreen() {
         { 
           text: 'Confirm', 
           onPress: () => {
-            checkInMutation.mutate({ memberId: member.id, gymId: activeGymId || '' }, {
+            checkInMutation.mutate({ memberId: member.id, gymId: activeGymId || '', method: 'FRONT_DESK', memberName: `${member.firstName} ${member.lastName}` }, {
               onSuccess: () => {
                 success();
                 Alert.alert('Success', `${member.firstName} checked in successfully.`, [

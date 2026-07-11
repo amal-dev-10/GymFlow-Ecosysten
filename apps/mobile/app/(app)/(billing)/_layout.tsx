@@ -48,6 +48,12 @@ export default function BillingLayout() {
         }}
       />
       <Stack.Screen
+        name="invoices/index"
+        options={{
+          title: 'Invoices',
+        }}
+      />
+      <Stack.Screen
         name="invoices/[id]"
         options={{
           title: 'Invoice Details',

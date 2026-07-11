@@ -1,14 +1,14 @@
-import React from 'react';
-import { View, StyleSheet, Text, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, StyleSheet, Text, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
-import { ScanLine, Search, Users } from 'lucide-react-native';
+import { ScanLine, Search, Users, LogIn, LogOut, AlertCircle, Clock, User } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { useTheme } from '../../../src/theme/theme';
 import { useWorkspaceStore } from '../../../src/store/workspace.store';
-import { useAttendanceStats, useAttendanceLogs } from '../../../src/hooks/useAttendance';
+import { useAttendanceStats, useAttendanceLogs, useCheckOut } from '../../../src/hooks/useAttendance';
 import { useNetworkStatus } from '../../../src/hooks/useNetworkStatus';
 
 import { AttendanceStatsWidget } from '../../../src/components/attendance/AttendanceStatsWidget';
@@ -17,24 +17,71 @@ import { ListItem } from '../../../src/components/ListItem';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { SectionHeader } from '../../../src/components/SectionHeader';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
+import { BottomSheet, BottomSheetRef } from '../../../src/components/BottomSheet';
+import { UserAvatar } from '../../../src/components/UserAvatar';
+import { StatusBadge } from '../../../src/components/StatusBadge';
+import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { SecondaryButton } from '../../../src/components/SecondaryButton';
+import { useHaptics } from '../../../src/hooks/useHaptics';
 
 export default function AttendanceDashboardScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, typography, radius } = useTheme();
   const router = useRouter();
   const { activeGymId } = useWorkspaceStore();
   const { isOffline } = useNetworkStatus();
+  const { success: hapticSuccess } = useHaptics();
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useAttendanceStats(activeGymId || '');
   const { data: logs, isLoading: logsLoading, refetch: refetchLogs, isFetching } = useAttendanceLogs(activeGymId || '');
+  
+  const checkOutMutation = useCheckOut();
+
+  const detailsSheetRef = useRef<BottomSheetRef>(null);
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
 
   const handleRefresh = () => {
     refetchStats();
     refetchLogs();
   };
 
+  const handleItemPress = (item: any) => {
+    setSelectedLog(item);
+    detailsSheetRef.current?.show();
+  };
+
+  const handleForceCheckOut = () => {
+    if (!selectedLog) return;
+    Alert.alert(
+      'Force Check-Out',
+      `Check out ${selectedLog.memberName || 'Member'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: () => {
+            checkOutMutation.mutate({
+              memberId: selectedLog.memberId,
+              gymId: activeGymId || '',
+              attendanceId: selectedLog.id
+            }, {
+              onSuccess: () => {
+                hapticSuccess();
+                detailsSheetRef.current?.hide();
+                handleRefresh();
+              },
+              onError: (err: any) => {
+                Alert.alert('Error', err.message || 'Check-out failed');
+              }
+            });
+          }
+        }
+      ]
+    );
+  };
+
   const renderHeader = () => (
-    <View style={{ paddingBottom: spacing.lg }}>
-      <Animated.View entering={FadeInDown.duration(400).springify()} style={[styles.header, { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, paddingTop: spacing.md }]}>
+    <View style={{ paddingBottom: spacing.lg, paddingHorizontal: spacing.lg }}>
+      <Animated.View entering={FadeInDown.duration(400).springify()} style={[styles.header, { paddingBottom: spacing.lg, paddingTop: spacing.md }]}>
         <Text style={{ fontSize: typography.sizes.display.fontSize, fontWeight: '800', color: colors.text, letterSpacing: -0.5 }}>
           Attendance
         </Text>
@@ -51,7 +98,7 @@ export default function AttendanceDashboardScreen() {
 
       <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
         <SectionHeader title="Actions" style={{ marginTop: spacing.xl }} />
-        <View style={{ flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
+        <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
           <QuickActionButton
             label="Scan QR"
             icon={<ScanLine size={24} color={colors.primary} />}
@@ -76,21 +123,39 @@ export default function AttendanceDashboardScreen() {
     </View>
   );
 
-  const renderItem = ({ item, index }: { item: any, index: number }) => (
-    <Animated.View entering={FadeInUp.delay(Math.min(index * 50, 400)).duration(300)}>
-      <ListItem
-        title={item.member?.firstName ? `${item.member.firstName} ${item.member.lastName}` : 'Unknown Member'}
-        subtitle={`${item.type === 'check-in' ? 'Checked In' : 'Checked Out'} at ${new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-        leftComponent={
-          <View style={[styles.iconDot, { backgroundColor: item.type === 'check-in' ? colors.success + '20' : colors.primary + '20' }]}>
-            {item.type === 'check-in' ? <ScanLine size={14} color={colors.success} /> : <Users size={14} color={colors.primary} />}
-          </View>
-        }
-        onPress={() => router.push(`/(app)/(members)/${item.member?.id}`)}
-        style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm, borderRadius: 12 }}
-      />
-    </Animated.View>
-  );
+  const renderItem = ({ item, index }: { item: any, index: number }) => {
+    const denied = String(item.status || '').toLowerCase() === 'denied';
+    const checkedOut = !!item.checkOutTime;
+
+    const { Icon, tint } = denied
+      ? { Icon: AlertCircle, tint: colors.error }
+      : checkedOut
+        ? { Icon: LogOut, tint: colors.textSecondary }
+        : { Icon: LogIn, tint: colors.success };
+
+    const subtitle = denied
+      ? `Denied · ${item.reason || item.method || 'No access'}`
+      : checkedOut
+        ? `In ${item.checkInTime} · Out ${item.checkOutTime}${item.durationText ? ` · ${item.durationText}` : ''}`
+        : `Checked in at ${item.checkInTime}`;
+
+    return (
+      <Animated.View entering={FadeInUp.delay(Math.min(index * 50, 400)).duration(300)} style={{ paddingHorizontal: spacing.lg }}>
+        <ListItem
+          title={item.memberName || 'Unknown Member'}
+          subtitle={subtitle}
+          showChevron={false}
+          leftComponent={
+            <View style={[styles.iconDot, { backgroundColor: tint + '20' }]}>
+              <Icon size={15} color={tint} />
+            </View>
+          }
+          onPress={() => handleItemPress(item)}
+          style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm, borderRadius: 12 }}
+        />
+      </Animated.View>
+    );
+  };
 
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: colors.background }]}>
@@ -117,6 +182,75 @@ export default function AttendanceDashboardScreen() {
           )
         }
       />
+
+      {/* Attendance Detail Sheet */}
+      <BottomSheet ref={detailsSheetRef} snapPoints={[400, 420]}>
+        {selectedLog && (
+          <View style={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl }}>
+              <UserAvatar name={selectedLog.memberName || 'Unknown'} size={48} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: typography.sizes.title.fontSize, fontWeight: '800', color: colors.text }}>
+                  {selectedLog.memberName || 'Unknown Member'}
+                </Text>
+                <Text style={{ fontSize: typography.sizes.caption.fontSize, color: colors.textSecondary, marginTop: 2 }}>
+                  Method: {selectedLog.method || 'FRONT_DESK'}
+                </Text>
+              </View>
+              <StatusBadge
+                label={selectedLog.status || 'Active'}
+                type={String(selectedLog.status).toLowerCase() === 'denied' ? 'error' : 'success'}
+              />
+            </View>
+
+            {/* Timings */}
+            <View style={[styles.detailsBox, { borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.xl }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                <LogIn size={16} color={colors.success} />
+                <Text style={{ color: colors.text, fontSize: 14 }}>
+                  Check-in Time: <Text style={{ fontWeight: '600' }}>{selectedLog.checkInTime || '—'}</Text>
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: selectedLog.durationText ? spacing.sm : 0 }}>
+                <LogOut size={16} color={colors.textSecondary} />
+                <Text style={{ color: colors.text, fontSize: 14 }}>
+                  Check-out Time: <Text style={{ fontWeight: '600' }}>{selectedLog.checkOutTime || 'Currently inside'}</Text>
+                </Text>
+              </View>
+              {selectedLog.durationText && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Clock size={16} color={colors.primary} />
+                  <Text style={{ color: colors.text, fontSize: 14 }}>
+                    Total Duration: <Text style={{ fontWeight: '600' }}>{selectedLog.durationText}</Text>
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Actions */}
+            <View style={{ gap: spacing.sm }}>
+              {!selectedLog.checkOutTime && String(selectedLog.status).toLowerCase() !== 'denied' && (
+                <PrimaryButton
+                  label="Check Out Member"
+                  onPress={handleForceCheckOut}
+                  loading={checkOutMutation.isPending}
+                  icon={<LogOut size={18} color={colors.textOnPrimary} style={{ marginRight: 8 }} />}
+                />
+              )}
+              {selectedLog.memberId && selectedLog.memberId !== 'GUEST' && (
+                <SecondaryButton
+                  label="View Member Profile"
+                  onPress={() => {
+                    detailsSheetRef.current?.hide();
+                    router.push(`/(app)/(members)/${selectedLog.memberId}`);
+                  }}
+                  icon={<User size={18} color={colors.text} style={{ marginRight: 8 }} />}
+                />
+              )}
+            </View>
+          </View>
+        )}
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -131,4 +265,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  detailsBox: {
+    borderWidth: 1,
+  }
 });

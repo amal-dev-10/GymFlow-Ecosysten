@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, StyleSheet, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,12 +8,11 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTheme } from '../../../src/theme/theme';
 import { useWorkspace } from '../../../src/providers/WorkspaceProvider';
 import { useHaptics } from '../../../src/hooks/useHaptics';
+import { useRevenueReport, useMemberReport, useAttendanceReport, useMembershipReport } from '../../../src/hooks/useReports';
 
 import { Card } from '../../../src/components/Card';
 import { SectionHeader } from '../../../src/components/SectionHeader';
 import { MetricCard } from '../../../src/components/MetricCard';
-
-const FILTER_OPTIONS = ['Today', 'Yesterday', 'This Week', 'This Month'];
 
 export default function ReportsDashboard() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -21,7 +20,12 @@ export default function ReportsDashboard() {
   const { lightImpact } = useHaptics();
   const { can, role } = useWorkspace();
 
-  const [selectedFilter, setSelectedFilter] = useState('This Month');
+  // Real KPI snapshots (each has its own natural window — labelled per card).
+  const revenue = useRevenueReport();
+  const members = useMemberReport();
+  const attendance = useAttendanceReport();
+  const membership = useMembershipReport();
+  const kpi = (v?: number) => (v == null ? '—' : v.toLocaleString('en-IN'));
 
   const reportItems = [
     { label: 'Revenue & Payments', icon: DollarSign, color: '#10B981', route: '/(app)/(reports)/revenue', visible: can('view-reports') },
@@ -32,65 +36,56 @@ export default function ReportsDashboard() {
   ];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.replace('/(app)/(more)')} style={styles.backBtn}>
-          <ArrowLeft size={22} color={colors.text} />
-        </Pressable>
-        <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>Reports & Analytics</Text>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Themed Main Header */}
+        <Animated.View 
+          entering={FadeInDown.duration(400).springify()}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm }}
+        >
+          <Text
+            style={{
+              fontSize: typography.sizes.display.fontSize,
+              fontWeight: '800',
+              color: colors.text,
+              letterSpacing: -0.5,
+            }}
+          >
+            Reports
+          </Text>
+          <Text style={{ fontSize: typography.sizes.body.fontSize, color: colors.textSecondary, marginTop: spacing.xxs }}>
+            Track gym performance and growth metrics.
+          </Text>
+        </Animated.View>
 
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}>
-        {/* Date Filters Row */}
-        <View style={styles.filterRow}>
-          {FILTER_OPTIONS.map((opt) => {
-            const isSelected = opt === selectedFilter;
-            return (
-              <Pressable
-                key={opt}
-                onPress={() => { lightImpact(); setSelectedFilter(opt); }}
-                style={[
-                  styles.filterBtn,
-                  { 
-                    backgroundColor: isSelected ? colors.primary : colors.surface,
-                    borderColor: isSelected ? colors.primary : colors.border
-                  }
-                ]}
-              >
-                <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? '#FFF' : colors.textSecondary }}>{opt}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Dashboard Snapshot Stats */}
+        <View style={{ paddingHorizontal: spacing.lg }}>
+        {/* Dashboard Snapshot Stats — real data */}
         <SectionHeader title="KPI Summary" style={{ marginTop: spacing.lg }} />
         <View style={{ gap: spacing.md, marginBottom: spacing.lg }}>
           <View style={styles.gridRow}>
             <MetricCard
-              label="Gross Revenue"
-              value={selectedFilter === 'Today' ? '₹8,200' : '₹1,42,800'}
+              label="Collected"
+              value={revenue.data ? `₹${revenue.data.totalCollected.toLocaleString('en-IN')}` : '—'}
               icon={<DollarSign size={18} color={colors.success} />}
               delay={50}
             />
             <MetricCard
-              label="New Signups"
-              value={selectedFilter === 'Today' ? '2' : '24'}
+              label="New This Month"
+              value={kpi(members.data?.newThisMonth)}
               icon={<Users size={18} color={colors.primary} />}
               delay={100}
             />
           </View>
           <View style={styles.gridRow}>
             <MetricCard
-              label="Attendance Count"
-              value={selectedFilter === 'Today' ? '68' : '842'}
+              label="Check-ins (30d)"
+              value={kpi(attendance.data?.totalVisits)}
               icon={<Clock size={18} color={colors.warning} />}
               delay={150}
             />
             <MetricCard
-              label="Active Members"
-              value="318"
+              label="Active Plans"
+              value={kpi(membership.data?.active)}
               icon={<Activity size={18} color="#14B8A6" />}
               delay={200}
             />
@@ -125,6 +120,7 @@ export default function ReportsDashboard() {
               </Pressable>
             ))}
         </Card>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

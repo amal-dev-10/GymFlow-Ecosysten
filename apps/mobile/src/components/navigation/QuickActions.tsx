@@ -116,7 +116,7 @@ export function GlobalFAB() {
       <Animated.View
         style={[
           styles.fabContainer,
-          { bottom: (Platform.OS === 'ios' ? 18 : 84) + 12 } // Float exactly 12 units above the custom tab bar
+          { bottom: 92 + 16 } // Float exactly 16 units above the custom tab bar (height 92)
         ]}
       >
         <Pressable

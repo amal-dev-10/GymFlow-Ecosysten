@@ -85,7 +85,7 @@ export function formatCurrency(amount: number): string {
 }
 
 export function trainerName(m: MemberDto): string | null {
-  return m.assignedTrainer?.name || null;
+  return m.aiInsights?.assignedTrainerName || m.assignedTrainer?.name || null;
 }
 
 export function branchName(m: MemberDto): string | null {

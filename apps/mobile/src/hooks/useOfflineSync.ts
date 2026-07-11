@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useNetworkStatus } from './useNetworkStatus';
 import { peek, dequeue, QueuedMutation } from '../lib/offlineQueue';
-import { membersApi } from '../lib/api';
+import { membersApi, attendanceApi, membershipsApi } from '../lib/api';
 import { queryClient } from '../lib/queryClient';
 
 /**
@@ -32,8 +32,12 @@ export function useOfflineSync() {
       }
       flushing.current = false;
 
-      // Invalidate member queries so screens pick up synced data
+      // Invalidate query caches so screens pick up synced data
       queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['memberships'] });
+      queryClient.invalidateQueries({ queryKey: ['activeMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['attendanceLogs'] });
+      queryClient.invalidateQueries({ queryKey: ['attendanceStats'] });
     };
 
     flush();
@@ -47,6 +51,21 @@ async function executeMutation(m: QueuedMutation): Promise<void> {
       break;
     case 'update-member':
       await membersApi.update(m.payload.id, m.payload.data);
+      break;
+    case 'create-membership':
+      await membershipsApi.purchaseMembership(m.payload);
+      break;
+    case 'freeze-membership':
+      await membershipsApi.requestFreeze(m.payload);
+      break;
+    case 'check-in':
+      await membersApi.checkIn(m.payload.memberId, m.payload.gymId, { method: m.payload.method, memberName: m.payload.memberName });
+      break;
+    case 'check-out':
+      await membersApi.checkOut(m.payload.attendanceId || m.payload.memberId);
+      break;
+    case 'create-membership-plan':
+      await membershipsApi.createPlan(m.payload);
       break;
   }
 }

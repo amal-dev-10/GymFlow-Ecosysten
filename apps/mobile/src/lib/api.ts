@@ -126,12 +126,72 @@ export interface OrganizationSummaryDto {
   name: string;
   myRole: string | null;
   gyms: { id: string; name: string; address?: string | null }[];
+  // GET /v1/organizations spreads the full org record, so these are present too.
+  slug?: string;
+  logoUrl?: string | null;
+  businessType?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  postalCode?: string | null;
+  currency?: string | null;
+  timezone?: string | null;
+  dateFormat?: string | null;
+  language?: string | null;
+  description?: string | null;
+  allowMemberSelfRegistration?: boolean | null;
+  enableMultiBranchOperations?: boolean | null;
+  enableAttendanceTracking?: boolean | null;
+  enableWorkoutManagement?: boolean | null;
+  enableDietManagement?: boolean | null;
+  enablePersonalTraining?: boolean | null;
+}
+
+export type UpdateOrganizationPayload = Partial<Omit<CreateOrganizationPayload, 'slug'>> & {
+  description?: string;
+  allowMemberSelfRegistration?: boolean;
+  enableMultiBranchOperations?: boolean;
+  enableAttendanceTracking?: boolean;
+  enableWorkoutManagement?: boolean;
+  enableDietManagement?: boolean;
+  enablePersonalTraining?: boolean;
+};
+
+export interface CreateOrganizationPayload {
+  name: string;
+  slug: string;
+  logoUrl?: string;
+  businessType?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  currency?: string;
+  timezone?: string;
+  dateFormat?: string;
+  language?: string;
 }
 
 export const orgApi = {
   // Doesn't need x-organization-id — this is how the client discovers which
   // organizations/gyms the signed-in user is allowed to pick from.
   list: () => apiRequest<OrganizationSummaryDto[]>('/v1/organizations'),
+  // Creates the org, links the caller as Organization Owner, and assigns the
+  // default subscription plan (backend handles all three in one transaction).
+  create: (payload: CreateOrganizationPayload) =>
+    apiRequest<{ id: string; name: string; slug: string }>('/v1/organizations', { method: 'POST', body: payload }),
+  update: (id: string, payload: UpdateOrganizationPayload) =>
+    apiRequest<OrganizationSummaryDto>(`/v1/organizations/${encodeURIComponent(id)}`, { method: 'PUT', body: payload }),
 };
 
 export const attendanceApi = {
@@ -145,6 +205,10 @@ export const attendanceApi = {
     apiRequest<any[]>(`/v1/attendance/logs?gymId=${encodeURIComponent(gymId)}`),
   getAnalytics: (gymId?: string) =>
     apiRequest<any>(`/v1/attendance/analytics${gymId ? `?gymId=${encodeURIComponent(gymId)}` : ''}`),
+  checkIn: (payload: { memberId?: string; gymId: string; method: string; memberName?: string; token?: string }) =>
+    apiRequest<any>('/v1/attendance/check-in', { method: 'POST', body: payload }),
+  checkOut: (id: string) =>
+    apiRequest<any>(`/v1/attendance/check-out/${encodeURIComponent(id)}`, { method: 'POST' }),
 };
 
 export const membershipsApi = {
@@ -161,6 +225,8 @@ export const membershipsApi = {
   requestFreeze: (payload: any) => apiRequest<any>('/v1/memberships/freeze', { method: 'POST', body: payload }),
   reactivateEarly: (id: string) => apiRequest<any>(`/v1/memberships/freeze/${encodeURIComponent(id)}/reactivate`, { method: 'POST' }),
   listPlans: () => apiRequest<any[]>('/v1/memberships/plans'),
+  createPlan: (payload: any) =>
+    apiRequest<any>('/v1/memberships/plans', { method: 'POST', body: payload }),
 };
 
 export interface MemberDto {
@@ -271,10 +337,13 @@ export const membersApi = {
     apiRequest<{ qrToken: string; expiresAt: string; generatedAt: string }>(`/v1/members/${id}/qr`),
   timeline: (id: string) =>
     apiRequest<TimelineEvent[]>(`/v1/members/${id}/timeline`),
-  checkIn: (id: string, gymId: string) =>
-    apiRequest<any>('/v1/attendance/check-in', { method: 'POST', body: { memberId: id, gymId } }),
-  checkOut: (id: string, gymId: string) =>
-    apiRequest<any>('/v1/attendance/check-out', { method: 'POST', body: { memberId: id, gymId } }),
+  checkIn: (id: string, gymId: string, payload?: { method?: string; memberName?: string }) =>
+    apiRequest<any>('/v1/attendance/check-in', {
+      method: 'POST',
+      body: { memberId: id, gymId, method: payload?.method || 'FRONT_DESK', memberName: payload?.memberName },
+    }),
+  checkOut: (attendanceId: string) =>
+    apiRequest<any>(`/v1/attendance/check-out/${attendanceId}`, { method: 'POST' }),
   /** Look up whether a phone number belongs to a global profile across all gyms. */
   lookupGlobal: (phoneNumber: string) =>
     apiRequest<any | null>(`/v1/members/lookup/global?phoneNumber=${encodeURIComponent(phoneNumber)}`),
@@ -298,10 +367,57 @@ export const membersApi = {
 export const gymApi = {
   list: (organizationId: string) =>
     apiRequest<any[]>(`/v1/gyms?organizationId=${encodeURIComponent(organizationId)}`),
+  create: (payload: {
+    organizationId: string;
+    name: string;
+    address?: string;
+    contactPhone?: string;
+    contactEmail?: string;
+    latitude?: number;
+    longitude?: number;
+  }) => apiRequest<{ id: string; name: string }>('/v1/gyms', { method: 'POST', body: payload }),
 };
 
+export interface StaffDto {
+  id: string;
+  name: string;
+  phone: string;
+  /** Names of the gyms this staff member is assigned to. */
+  gyms: string[];
+  roleId: string;
+  roleName: string;
+  /** Primary role + any additional roles, flattened to names. */
+  roleNames: string[];
+  status: 'active' | 'inactive';
+  /** ISO date (yyyy-mm-dd) the employee record was created. */
+  assignedDate: string;
+}
+
 export const rolesApi = {
-  getEmployees: () => apiRequest<any[]>('/v1/roles/employees'),
+  getEmployees: () => apiRequest<StaffDto[]>('/v1/roles/employees'),
+  list: () => apiRequest<any[]>('/v1/roles'),
+};
+
+export const orgUsersApi = {
+  getStats: () => apiRequest<any>('/v1/organizations/users/stats'),
+  list: () => apiRequest<any[]>('/v1/organizations/users'),
+  getDetails: (userId: string) => apiRequest<any>(`/v1/organizations/users/${encodeURIComponent(userId)}/details`),
+  changeRole: (userId: string, roleId: string, roleIds?: string[]) =>
+    apiRequest<any>(`/v1/organizations/users/${encodeURIComponent(userId)}/role`, { method: 'PUT', body: { roleId, roleIds } }),
+  assignGyms: (userId: string, gymIds: string[]) =>
+    apiRequest<any>(`/v1/organizations/users/${encodeURIComponent(userId)}/gyms`, { method: 'PUT', body: { gymIds } }),
+  toggleStatus: (userId: string, isActive: boolean) =>
+    apiRequest<any>(`/v1/organizations/users/${encodeURIComponent(userId)}/status`, { method: 'PUT', body: { isActive } }),
+  removeUser: (userId: string) =>
+    apiRequest<any>(`/v1/organizations/users/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+  bulkUpdate: (payload: { userIds: string[]; roleId?: string; roleIds?: string[]; gymIds?: string[] }) =>
+    apiRequest<any>('/v1/organizations/users/bulk', { method: 'POST', body: payload }),
+  
+  getInvitations: () => apiRequest<any[]>('/v1/organizations/invitations'),
+  inviteUser: (payload: { phoneNumber: string; roleId?: string; roleIds?: string[]; email?: string; fullName?: string; gymIds?: string[]; message?: string }) =>
+    apiRequest<any>('/v1/organizations/invitations', { method: 'POST', body: payload }),
+  resendInvitation: (id: string) => apiRequest<any>(`/v1/organizations/invitations/${encodeURIComponent(id)}/resend`, { method: 'POST' }),
+  deleteInvitation: (id: string) => apiRequest<any>(`/v1/organizations/invitations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
 
 export const leadsApi = {
@@ -360,13 +476,21 @@ export async function getDashboardBillingStats(gymId: string) {
   };
 }
 
-// --- Billing Mock API ---
+// ---------------------------------------------------------------------------
+// Billing — derived entirely from real membership data.
+//
+// There is no separate billing/invoice/payment table on the backend: each
+// MemberMembership purchase IS the invoice, with the authoritative amounts
+// living on `amountPaid` / `outstandingDues`. Collecting a due payment (or
+// issuing a refund) simply PATCHes those two fields on the subscription — this
+// mirrors exactly what the web workspace app does (apps/web billing pages).
+// ---------------------------------------------------------------------------
 export interface TransactionDto {
   id: string;
   memberId: string;
   memberName: string;
   amount: number;
-  method: 'Cash' | 'UPI' | 'Credit Card' | 'Debit Card' | 'Bank Transfer' | 'Wallet';
+  method: 'Cash' | 'UPI' | 'Credit Card' | 'Debit Card' | 'Bank Transfer' | 'Wallet' | 'Other';
   type: 'Membership Payment' | 'Membership Renewal' | 'Personal Training' | 'Product Sale' | 'Registration Fee' | 'Joining Fee' | 'Locker Fee' | 'Miscellaneous';
   date: string;
   status: 'Completed' | 'Pending' | 'Failed' | 'Refunded';
@@ -375,78 +499,362 @@ export interface TransactionDto {
   collectedBy: string;
 }
 
+export type InvoiceStatus = 'Paid' | 'Partially Paid' | 'Pending' | 'Overdue' | 'Cancelled';
+
 export interface InvoiceDto {
+  /** Subscription (MemberMembership) id — invoices have no separate identity. */
   id: string;
   invoiceNumber: string;
   memberId: string;
   memberName: string;
+  memberPhone?: string;
+  category?: string;
   amount: number;
   discount: number;
   tax: number;
   total: number;
-  status: 'Paid' | 'Pending' | 'Overdue';
+  amountPaid: number;
+  outstanding: number;
+  status: InvoiceStatus;
   dueDate: string;
   createdAt: string;
   items: { description: string; amount: number }[];
 }
 
-const dummyTransactions: TransactionDto[] = [
-  { id: 'txn-1', memberId: 'm-1', memberName: 'John Doe', amount: 5000, method: 'UPI', type: 'Membership Renewal', date: new Date().toISOString(), status: 'Completed', invoiceId: 'inv-1', receiptId: 'rcpt-1', collectedBy: 'Admin' },
-  { id: 'txn-2', memberId: 'm-2', memberName: 'Jane Smith', amount: 1500, method: 'Cash', type: 'Personal Training', date: new Date(Date.now() - 86400000).toISOString(), status: 'Completed', invoiceId: 'inv-2', receiptId: 'rcpt-2', collectedBy: 'Admin' }
-];
+/** Belongs to `gymId` if the member's home gym matches (or no filter given). */
+function subscriptionInGym(sub: any, gymId?: string): boolean {
+  if (!gymId || gymId === 'all') return true;
+  return sub.member?.homeGymId === gymId || sub.gymId === gymId;
+}
 
-const dummyInvoices: InvoiceDto[] = [
-  { id: 'inv-1', invoiceNumber: 'INV-2026-001', memberId: 'm-1', memberName: 'John Doe', amount: 5000, discount: 0, tax: 0, total: 5000, status: 'Paid', dueDate: new Date().toISOString(), createdAt: new Date().toISOString(), items: [{ description: 'Annual Membership', amount: 5000 }] },
-  { id: 'inv-2', invoiceNumber: 'INV-2026-002', memberId: 'm-2', memberName: 'Jane Smith', amount: 1500, discount: 0, tax: 0, total: 1500, status: 'Paid', dueDate: new Date(Date.now() - 86400000).toISOString(), createdAt: new Date(Date.now() - 86400000).toISOString(), items: [{ description: '10 PT Sessions', amount: 1500 }] },
-  { id: 'inv-3', invoiceNumber: 'INV-2026-003', memberId: 'm-3', memberName: 'Bob Brown', amount: 3000, discount: 0, tax: 0, total: 3000, status: 'Overdue', dueDate: new Date(Date.now() - 5 * 86400000).toISOString(), createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), items: [{ description: 'Semi-Annual Membership', amount: 3000 }] }
-];
+/**
+ * Derive a billing invoice from a real member-membership ledger row.
+ * Kept identical in spirit to apps/web's subscriptionToInvoice so the two
+ * clients agree on totals and statuses.
+ */
+export function subscriptionToInvoice(sub: any): InvoiceDto {
+  const plan = sub.membershipPlan || {};
+  const base = (plan.basePrice || 0) + (plan.joiningFee || 0);
+  const tax = Math.round(base * ((plan.taxPercentage || 0) / 100));
+  const planTotal = base + tax;
+  const amountPaid = Number(sub.amountPaid) || 0;
+  const outstanding = sub.outstandingDues != null
+    ? Math.max(0, Number(sub.outstandingDues))
+    : Math.max(0, planTotal - amountPaid);
+  const total = amountPaid + outstanding;
 
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+  let status: InvoiceStatus;
+  const today = new Date();
+  const due = new Date(sub.startDate);
+  if (sub.status === 'Cancelled') status = 'Cancelled';
+  else if (outstanding <= 0 && amountPaid > 0) status = 'Paid';
+  else if (amountPaid > 0) status = 'Partially Paid';
+  else if (due < today) status = 'Overdue';
+  else status = 'Pending';
+
+  const items = [{ description: plan.name || 'Membership', amount: base }];
+  if (tax > 0) items.push({ description: `Tax (${plan.taxPercentage}%)`, amount: tax });
+
+  return {
+    id: sub.id,
+    invoiceNumber: `INV-${String(sub.id).slice(0, 8).toUpperCase()}`,
+    memberId: sub.memberId,
+    memberName: `${sub.member?.firstName || ''} ${sub.member?.lastName || ''}`.trim() || 'Unknown Member',
+    memberPhone: sub.member?.phoneNumber || undefined,
+    category: plan.category || plan.name || 'Membership',
+    amount: base,
+    discount: 0,
+    tax,
+    total,
+    amountPaid,
+    outstanding,
+    status,
+    dueDate: sub.startDate,
+    createdAt: sub.createdAt || sub.startDate,
+    items,
+  };
+}
+
+/** Each subscription with money collected reads as one completed transaction. */
+function subscriptionToTransaction(sub: any): TransactionDto {
+  const inv = subscriptionToInvoice(sub);
+  return {
+    id: sub.id,
+    memberId: sub.memberId,
+    memberName: inv.memberName,
+    amount: inv.amountPaid,
+    // The ledger stores a running amount, not per-payment methods.
+    method: 'Other',
+    type: 'Membership Payment',
+    date: sub.createdAt || sub.startDate,
+    status: 'Completed',
+    invoiceId: sub.id,
+    receiptId: sub.id,
+    collectedBy: '—',
+  };
+}
 
 export const billingApi = {
-  getDashboardStats: async (gymId: string) => {
-    await delay(500);
-    return { todaysCollections: 5000, pendingDues: 14500, overduePayments: 3000, upcomingRenewals: 8 };
+  getDashboardStats: (gymId: string) => getDashboardBillingStats(gymId),
+
+  listInvoices: async (gymId: string): Promise<InvoiceDto[]> => {
+    const subs = await membershipsApi.listAllSubscriptions();
+    return subs
+      .filter((s) => subscriptionInGym(s, gymId))
+      .map(subscriptionToInvoice)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
-  listTransactions: async (gymId: string) => {
-    await delay(500);
-    return dummyTransactions;
+
+  listPendingDues: async (gymId: string): Promise<InvoiceDto[]> => {
+    const all = await billingApi.listInvoices(gymId);
+    return all.filter((i) => i.outstanding > 0 && i.status !== 'Cancelled');
   },
-  listPendingDues: async (gymId: string) => {
-    await delay(500);
-    return dummyInvoices.filter(i => i.status !== 'Paid');
+
+  listTransactions: async (gymId: string): Promise<TransactionDto[]> => {
+    const subs = await membershipsApi.listAllSubscriptions();
+    return subs
+      .filter((s) => subscriptionInGym(s, gymId) && (Number(s.amountPaid) || 0) > 0)
+      .map(subscriptionToTransaction)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   },
-  listInvoices: async (gymId: string) => {
-    await delay(500);
-    return dummyInvoices;
+
+  getInvoice: async (id: string): Promise<InvoiceDto> => {
+    const sub = await membershipsApi.getSubscription(id);
+    if (!sub) throw new ApiError(404, { message: 'Invoice not found' });
+    return subscriptionToInvoice(sub);
   },
-  getInvoice: async (id: string) => {
-    await delay(300);
-    const inv = dummyInvoices.find(i => i.id === id);
-    if (!inv) throw new ApiError(404, { message: 'Invoice not found' });
-    return inv;
-  },
+
   getReceipt: async (id: string) => {
-    await delay(300);
-    return { id, receiptNumber: `RCPT-${id.split('-')[1]}`, transaction: dummyTransactions.find(t => t.receiptId === id) || dummyTransactions[0] };
+    const sub = await membershipsApi.getSubscription(id);
+    if (!sub) throw new ApiError(404, { message: 'Receipt not found' });
+    return {
+      id,
+      receiptNumber: `RCPT-${String(id).slice(0, 8).toUpperCase()}`,
+      transaction: subscriptionToTransaction(sub),
+    };
   },
-  collectPayment: async (payload: any) => {
-    await delay(800);
-    const txn: TransactionDto = {
+
+  /**
+   * Collect a due payment against a subscription. Persists to the ledger by
+   * moving `amount` from outstandingDues into amountPaid — same operation the
+   * web billing detail page performs.
+   */
+  collectPayment: async (payload: {
+    invoiceId: string;
+    amount: number;
+    method?: string;
+    memberName?: string;
+    type?: string;
+  }): Promise<TransactionDto> => {
+    const { invoiceId, amount } = payload;
+    if (!invoiceId) throw new ApiError(400, { message: 'A subscription/invoice is required to collect a payment.' });
+
+    const sub = await membershipsApi.getSubscription(invoiceId);
+    if (!sub) throw new ApiError(404, { message: 'Invoice not found' });
+
+    const currentPaid = Number(sub.amountPaid) || 0;
+    const currentOutstanding = Number(sub.outstandingDues) || 0;
+
+    await membershipsApi.updateSubscription(invoiceId, {
+      amountPaid: currentPaid + amount,
+      outstandingDues: Math.max(0, currentOutstanding - amount),
+    });
+
+    const name = payload.memberName
+      || `${sub.member?.firstName || ''} ${sub.member?.lastName || ''}`.trim()
+      || 'Member';
+
+    return {
       id: `txn-${Date.now()}`,
-      memberId: payload.memberId,
-      memberName: payload.memberName || 'Unknown Member',
-      amount: payload.amount,
-      method: payload.method,
-      type: payload.type,
+      memberId: sub.memberId,
+      memberName: name,
+      amount,
+      method: (payload.method as TransactionDto['method']) || 'Cash',
+      type: (payload.type as TransactionDto['type']) || 'Membership Payment',
       date: new Date().toISOString(),
       status: 'Completed',
-      invoiceId: `inv-${Date.now()}`,
-      receiptId: `rcpt-${Date.now()}`,
-      collectedBy: 'Current User'
+      invoiceId,
+      receiptId: invoiceId,
+      collectedBy: 'You',
     };
-    dummyTransactions.unshift(txn);
-    return txn;
-  }
+  },
 };
 
+
+// ---------------------------------------------------------------------------
+// Support — tenant-facing helpdesk (mirrors the platform admin Support Center,
+// scoped to the active organization by the backend). See apps/api support module.
+// ---------------------------------------------------------------------------
+export type SupportTicketStatus =
+  | 'OPEN' | 'NEW' | 'IN_PROGRESS' | 'WAITING_FOR_CUSTOMER' | 'ESCALATED'
+  | 'RESOLVED' | 'CLOSED' | 'CANCELLED';
+export type SupportTicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export interface SupportTicketSummary {
+  id: string;
+  ticketNumber: number;
+  subject: string;
+  status: SupportTicketStatus;
+  priority: SupportTicketPriority;
+  category?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastMessage?: string | null;
+}
+
+export interface SupportMessage {
+  id: string;
+  authorType: 'Customer' | 'Agent' | 'System';
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface SupportTicketDetail extends SupportTicketSummary {
+  description?: string | null;
+  createdByName?: string;
+  resolvedAt?: string | null;
+  satisfactionScore?: number | null;
+  messages: SupportMessage[];
+}
+
+export const supportApi = {
+  listTickets: (status?: 'open' | 'closed') =>
+    apiRequest<SupportTicketSummary[]>(`/v1/support/tickets${status ? `?status=${status}` : ''}`),
+  getTicket: (id: string) => apiRequest<SupportTicketDetail>(`/v1/support/tickets/${encodeURIComponent(id)}`),
+  createTicket: (payload: { subject: string; description?: string; priority?: string; category?: string }) =>
+    apiRequest<SupportTicketDetail>('/v1/support/tickets', { method: 'POST', body: payload }),
+  postMessage: (id: string, body: string) =>
+    apiRequest<SupportTicketDetail>(`/v1/support/tickets/${encodeURIComponent(id)}/messages`, { method: 'POST', body: { body } }),
+  recordCsat: (id: string, score: number, comment?: string) =>
+    apiRequest<SupportTicketDetail>(`/v1/support/tickets/${encodeURIComponent(id)}/csat`, { method: 'POST', body: { score, comment } }),
+};
+
+// ---------------------------------------------------------------------------
+// Subscription — the organization's OWN plan with the GymFlow platform (not to
+// be confused with member memberships). Read-only status here; upgrade/checkout
+// (Razorpay) is a separate flow. See apps/api subscriptions module.
+// ---------------------------------------------------------------------------
+export interface OrgSubscriptionResourceLimit {
+  resourceKey: string;
+  limitType: string; // 'LIMITED' | 'UNLIMITED' | ...
+  limitValue: number | null;
+  warningThresholdValue?: number | null;
+  resource?: { key: string; label: string; unit?: string | null; category?: string };
+}
+export interface OrgSubscriptionFeatureAccess {
+  featureKey: string;
+  state: string; // 'ENABLED' | 'DISABLED' | ...
+  feature?: { key: string; label: string; category?: string };
+}
+export interface OrgSubscription {
+  id: string;
+  status: string; // Active, Trialing, Past_Due, Grace_Period, Expired, ...
+  startDate: string;
+  endDate: string;
+  trialStartDate?: string | null;
+  trialEndDate?: string | null;
+  autoRenew: boolean;
+  paymentMethod?: string | null;
+  isEnterpriseCustom?: boolean;
+  customPrice?: number | null;
+  plan: {
+    id: string;
+    name: string;
+    description?: string | null;
+    badge?: string | null;
+    price: number;
+    currency: string;
+    billingCycle: string; // FREE | MONTHLY | QUARTERLY | HALF_YEARLY | YEARLY | ENTERPRISE
+    trialDays: number;
+    resourceLimits?: OrgSubscriptionResourceLimit[];
+    featureAccess?: OrgSubscriptionFeatureAccess[];
+  };
+  usages?: Array<{ featureName: string; currentValue: number }>;
+}
+
+export interface SubscriptionPaymentDto {
+  id: string;
+  amount: number;
+  status: string; // Success, Failed, Refunded, ...
+  paymentMethod: string;
+  transactionId?: string | null;
+  createdAt: string;
+}
+export interface SubscriptionInvoiceDto {
+  id: string;
+  amount: number;
+  status: string; // Paid, Unpaid, Void, Pending, Partially Paid, Refunded (Overdue derived)
+  description?: string | null;
+  dueDate: string;
+  paidAt?: string | null;
+  createdAt: string;
+  taxAmount?: number | null;
+  subscription?: { plan?: { name?: string; currency?: string } | null } | null;
+  payments?: SubscriptionPaymentDto[];
+}
+
+export interface SubscriptionPlanDto {
+  id: string;
+  name: string;
+  description?: string | null;
+  badge?: string | null;
+  price: number;
+  currency: string;
+  billingCycle: string;
+  trialDays: number;
+  displayOrder?: number;
+  resourceLimits?: OrgSubscriptionResourceLimit[];
+  featureAccess?: OrgSubscriptionFeatureAccess[];
+}
+
+export const subscriptionApi = {
+  getActive: () => apiRequest<OrgSubscription>('/v1/subscriptions/active'),
+  getPlans: () => apiRequest<SubscriptionPlanDto[]>('/v1/subscriptions/plans'),
+  getInvoices: () => apiRequest<SubscriptionInvoiceDto[]>('/v1/subscriptions/invoices'),
+  // Activates a FREE plan immediately. Paid plans require the checkout/Razorpay
+  // flow (not available in-app) and return 400 here.
+  subscribe: (planId: string) =>
+    apiRequest<any>('/v1/subscriptions/subscribe', { method: 'POST', body: { planId } }),
+};
+
+export interface MobileAppsSettingsDto {
+  androidLatestVersion: string;
+  iosLatestVersion: string;
+  minimumSupportedVersion: string;
+  forceUpdate: boolean;
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  playStoreUrl: string;
+  appStoreUrl: string;
+  releaseNotes: string;
+}
+
+export const platformPublicApi = {
+  getMobileVersionCheck: () =>
+    apiRequest<MobileAppsSettingsDto>('/v1/platform/settings-public/mobile-version-check', { skipAuth: true }),
+};
+
+// ---------------------------------------------------------------------------
+// Announcements — tenant read side of platform notifications (GymFlow → org).
+// See apps/api announcements module (org-scoped by the backend).
+// ---------------------------------------------------------------------------
+export interface AnnouncementDto {
+  id: string;
+  title: string;
+  body: string;
+  priority: string; // Low | Normal | High | Critical
+  channel: string;
+  notificationType: string;
+  createdAt: string;
+  sentAt?: string | null;
+  readAt?: string | null;
+  read: boolean;
+}
+
+export const announcementsApi = {
+  list: () => apiRequest<AnnouncementDto[]>('/v1/announcements'),
+  unreadCount: () => apiRequest<{ count: number }>('/v1/announcements/unread-count'),
+  markRead: (id: string) => apiRequest<{ ok: boolean }>(`/v1/announcements/${encodeURIComponent(id)}/read`, { method: 'POST' }),
+  markAllRead: () => apiRequest<{ updated: number }>('/v1/announcements/read-all', { method: 'POST' }),
+};

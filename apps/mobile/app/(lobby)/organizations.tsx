@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, RefreshControl, Pressable } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { ShieldAlert, LogOut, ChevronRight, Dumbbell } from 'lucide-react-native';
+import { ShieldAlert, LogOut, ChevronRight, Dumbbell, Plus } from 'lucide-react-native';
 import { useTheme } from '../../src/theme/theme';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useWorkspaceStore } from '../../src/store/workspace.store';
@@ -62,7 +62,7 @@ export default function OrganizationsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
         <View style={{ padding: spacing.lg, gap: spacing.md }}>
           {[0, 1, 2].map((i) => (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -80,7 +80,7 @@ export default function OrganizationsScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
         <ErrorState message={error} onRetry={() => load()} />
       </SafeAreaView>
     );
@@ -88,21 +88,32 @@ export default function OrganizationsScreen() {
 
   if (organizations.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
         <EmptyState
           icon={<ShieldAlert size={40} color={colors.textMuted} />}
-          title="No Gym Access Yet"
-          description="Your account isn't linked to any gym or organization. Ask your gym owner to add you as staff, then sign in again."
-          actionLabel="Sign Out"
-          onActionPress={logout}
+          title="No Organization Yet"
+          description="Set up your own gym business to get started, or ask an owner to add you as staff and sign in again."
+          actionLabel="Create Organization"
+          onActionPress={() => router.push('/(lobby)/create-organization')}
         />
+        <View style={{ padding: spacing.lg }}>
+          <Pressable
+            onPress={logout}
+            style={[styles.signOutRow, { borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface }]}
+          >
+            <LogOut size={16} color={colors.error} />
+            <Text style={{ color: colors.error, marginLeft: 8, fontWeight: '600', fontSize: typography.sizes.bodyMedium.fontSize }}>
+              Sign Out
+            </Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm }}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
+      <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
         <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body.fontSize }}>
           Choose which organization you're working in today.
         </Text>
@@ -118,7 +129,19 @@ export default function OrganizationsScreen() {
         ))}
       </ScrollView>
 
-      <View style={{ padding: spacing.lg }}>
+      <View style={{ padding: spacing.lg, gap: spacing.md }}>
+        <Pressable
+          onPress={() => router.push('/(lobby)/create-organization')}
+          style={[
+            styles.signOutRow,
+            { borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.primaryLight },
+          ]}
+        >
+          <Plus size={16} color={colors.primary} />
+          <Text style={{ color: colors.primary, marginLeft: 8, fontWeight: '700', fontSize: typography.sizes.bodyMedium.fontSize }}>
+            Create Organization
+          </Text>
+        </Pressable>
         <Pressable
           onPress={logout}
           style={[

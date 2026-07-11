@@ -95,7 +95,7 @@ export default function EditMemberScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
           <FormTextField name="firstName" label="First Name" control={control} errors={errors} required />
           <FormTextField name="lastName" label="Last Name" control={control} errors={errors} required />
           <FormPhoneField name="phoneNumber" label="Phone Number" control={control} errors={errors} required />

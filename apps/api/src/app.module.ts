@@ -27,6 +27,8 @@ import { RolesModule } from './modules/roles/roles.module';
 import { OrgUsersModule } from './modules/org-users/org-users.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { MembershipsModule } from './modules/memberships/memberships.module';
+import { SupportModule } from './modules/support/support.module';
+import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { ExpiryRemindersModule } from './modules/expiry-reminders/expiry-reminders.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { ExercisesModule } from './modules/exercises/exercises.module';
@@ -63,6 +65,8 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
     OrgUsersModule,
     AuditLogsModule,
     MembershipsModule,
+    SupportModule,
+    AnnouncementsModule,
     ExpiryRemindersModule,
     AttendanceModule,
     ExercisesModule,

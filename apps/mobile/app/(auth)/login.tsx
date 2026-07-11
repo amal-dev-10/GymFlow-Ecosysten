@@ -7,6 +7,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Image,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -15,6 +17,8 @@ import { useTheme } from '../../src/theme/theme';
 import { useAuthStore } from '../../src/store/auth.store';
 import { authApi, ApiError } from '../../src/lib/api';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
+
+const logoImg = require('../../assets/logo.png');
 
 const RESEND_SECONDS = 60;
 // No SMS gateway is configured in this environment — the backend logs and
@@ -40,6 +44,20 @@ export default function LoginScreen() {
       return () => clearTimeout(timer);
     }
   }, [step, countdown]);
+
+  useEffect(() => {
+    const backAction = () => {
+      if (step === 'otp') {
+        setStep('phone');
+        setErrorMsg('');
+        return true;
+      }
+      BackHandler.exitApp();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [step]);
 
   const isValidPhone = /^\+?[1-9]\d{7,14}$/.test(phone.trim());
 
@@ -112,8 +130,8 @@ export default function LoginScreen() {
         <View style={[styles.hero, { backgroundColor: colors.primaryLight }]}>
           <View style={[styles.heroBlob, { backgroundColor: colors.primary, opacity: 0.08 }]} />
           <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
-            <View style={[styles.logoIcon, elevation.sm, { backgroundColor: colors.surface, borderRadius: radius.xl }]}>
-              <ShieldCheck size={36} color={colors.primary} />
+            <View style={[styles.logoIcon, elevation.sm, { backgroundColor: colors.surface, borderRadius: radius.xl, overflow: 'hidden' }]}>
+              <Image source={logoImg} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
             </View>
             <Text
               style={[
@@ -257,6 +275,17 @@ export default function LoginScreen() {
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
+      <Text style={{
+        textAlign: 'center',
+        color: colors.textMuted,
+        fontSize: typography.sizes.overline.fontSize,
+        paddingBottom: spacing.md,
+        fontWeight: '600',
+        letterSpacing: 0.5,
+        backgroundColor: colors.background,
+      }}>
+        v{process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0'}
+      </Text>
     </SafeAreaView>
   );
 }

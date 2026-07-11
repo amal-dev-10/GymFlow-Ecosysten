@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, Modal, Text, Pressable, TextInput, ScrollView, Alert, Platform, ActivityIndicator, Linking } from 'react-native';
-import Animated, { FadeIn, FadeOut, SlideInUp, SlideOutUp, useAnimatedStyle, withTiming, withSpring, useSharedValue } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown, useAnimatedStyle, withTiming, withSpring, useSharedValue } from 'react-native-reanimated';
 import { Search, X, Mic, Pin, Star, Check, Phone, ArrowRight, CornerDownLeft, Sparkles, MessageCircle, ArrowLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -49,12 +49,19 @@ export function GlobalSearchModal() {
   const { lightImpact, mediumImpact } = useHaptics();
   const { isOffline } = useNetworkStatus();
 
-  const { isOpen, closeSearch, recentSearches, pinnedFavorites, addRecent, togglePin, clearRecent } = useSearchStore();
+  const { isOpen, closeSearch, recentSearches, pinnedFavorites, addRecent, togglePin, clearRecent, initialCategory } = useSearchStore();
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [activeItemIndex, setActiveItemIndex] = useState(0);
+
+  // Sync category filter when modal opens
+  useEffect(() => {
+    if (isOpen && initialCategory) {
+      setSelectedCategory(initialCategory);
+    }
+  }, [isOpen, initialCategory]);
 
   // Debounce search query
   useEffect(() => {
@@ -282,8 +289,8 @@ export function GlobalSearchModal() {
 
       {/* Main Panel */}
       <Animated.View
-        entering={SlideInUp.springify().damping(22).stiffness(180)}
-        exiting={SlideOutUp.duration(200)}
+        entering={SlideInDown.duration(300)}
+        exiting={SlideOutDown.duration(250)}
         style={[
           styles.modalContainer,
           { 

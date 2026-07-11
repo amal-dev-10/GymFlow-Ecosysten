@@ -1,12 +1,23 @@
-import React from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { IconButton } from '../../../src/components/IconButton';
 import { ChevronLeft } from 'lucide-react-native';
 import { useTheme } from '../../../src/theme/theme';
 
 export default function MembershipsLayout() {
   const router = useRouter();
+  const segments = useSegments();
   const { colors, typography } = useTheme();
+
+  const currentScreen = segments[segments.length - 1];
+  const isRoot = currentScreen === 'plans' || currentScreen === '(memberships)' || currentScreen === 'index';
+
+  const handleBack = () => {
+    if (isRoot) {
+      router.replace('/(app)/(more)');
+    } else {
+      router.back();
+    }
+  };
 
   return (
     <Stack
@@ -23,19 +34,21 @@ export default function MembershipsLayout() {
         headerLeft: () => (
           <IconButton
             icon={<ChevronLeft size={24} color={colors.text} />}
-            onPress={() => router.back()}
+            onPress={handleBack}
             accessibilityLabel="Go back"
             style={{ marginLeft: -8 }}
           />
         ),
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ title: 'Memberships', gestureEnabled: false }} />
       <Stack.Screen name="[id]" options={{ title: 'Membership Details' }} />
       <Stack.Screen name="create" options={{ title: 'New Membership', presentation: 'modal' }} />
       <Stack.Screen name="renew" options={{ title: 'Renew Membership', presentation: 'modal' }} />
       <Stack.Screen name="freeze" options={{ title: 'Freeze Membership', presentation: 'modal' }} />
       <Stack.Screen name="adjust" options={{ title: 'Adjust Membership', presentation: 'modal' }} />
+      <Stack.Screen name="plans" options={{ title: 'Membership Plans', gestureEnabled: false }} />
+      <Stack.Screen name="plans-create" options={{ title: 'Create Plan', presentation: 'modal' }} />
     </Stack>
   );
 }

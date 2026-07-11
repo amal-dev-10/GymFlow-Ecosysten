@@ -43,9 +43,12 @@ export default function NotificationDetailScreen() {
     if (item.actionType === 'open-member' && item.memberId) {
       router.push(`/(app)/(members)/${item.memberId}`);
     } else if (item.actionType === 'collect-payment') {
-      router.push('/(app)/(billing)/collect');
+      router.push(item.invoiceId ? `/(app)/(billing)/collect?invoiceId=${item.invoiceId}` : '/(app)/(billing)/pending');
     } else if (item.actionType === 'renew-membership') {
-      router.push('/(app)/(billing)/collect');
+      // Renewals start from the member's subscription/billing context.
+      if (item.invoiceId) router.push(`/(app)/(billing)/invoices/${item.invoiceId}`);
+      else if (item.memberId) router.push(`/(app)/(members)/${item.memberId}`);
+      else router.push('/(app)/(billing)/pending');
     } else {
       Alert.alert('Dismissed', 'Notification completed.');
       router.back();

@@ -232,9 +232,17 @@ export class AttendanceService {
    * Check out a member.
    */
   async checkOut(orgId: string, id: string, actorUserId?: string) {
-    const attendance = await this.prisma.attendance.findFirst({
+    let attendance = await this.prisma.attendance.findFirst({
       where: { id, organizationId: orgId },
     });
+
+    if (!attendance) {
+      // Fallback: see if "id" is actually a memberId with an active check-in session
+      attendance = await this.prisma.attendance.findFirst({
+        where: { memberId: id, organizationId: orgId, checkOutTime: null },
+        orderBy: { checkInTime: 'desc' },
+      });
+    }
 
     if (!attendance) {
       throw new NotFoundException('Check-in session record not found');
@@ -244,8 +252,11 @@ export class AttendanceService {
       throw new BadRequestException('Session already checked out');
     }
 
+    // Use the resolved record's id — `id` may have been a memberId (the fallback
+    // above looks up the active session by member), so updating by the raw param
+    // would miss the row.
     const updated = await this.prisma.attendance.update({
-      where: { id },
+      where: { id: attendance.id },
       data: {
         checkOutTime: new Date(),
       },

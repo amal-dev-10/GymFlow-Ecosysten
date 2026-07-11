@@ -30,6 +30,8 @@ export default function MembersLayout() {
       <Stack.Screen name="[id]" options={{ title: 'Member Profile' }} />
       <Stack.Screen name="create" options={{ title: 'Add Member' }} />
       <Stack.Screen name="[id]/edit" options={{ title: 'Edit Member' }} />
+      <Stack.Screen name="[id]/membership" options={{ title: 'Membership' }} />
+      <Stack.Screen name="[id]/freeze" options={{ title: 'Freeze' }} />
       <Stack.Screen
         name="scan"
         options={{

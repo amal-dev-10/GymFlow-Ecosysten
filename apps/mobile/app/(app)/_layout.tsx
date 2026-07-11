@@ -27,7 +27,7 @@ export default function AppLayout() {
             href: can('view-dashboard') ? '/(app)/(dashboard)' : null,
             tabBarItemStyle: { display: can('view-dashboard') ? 'flex' : 'none' },
             tabBarIcon: ({ color, focused }) => (
-              <LayoutDashboard size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+              <LayoutDashboard size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
             ),
           }}
         />
@@ -38,18 +38,18 @@ export default function AppLayout() {
             href: can('manage-members') ? '/(app)/(members)' : null,
             tabBarItemStyle: { display: can('manage-members') ? 'flex' : 'none' },
             tabBarIcon: ({ color, focused }) => (
-              <Users size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+              <Users size={20} color={color} strokeWidth={focused ? 2.5 : 2} />
             ),
           }}
         />
         <Tabs.Screen
-          name="(staffs)"
+          name="(users)"
           options={{
-            title: 'Staffs',
-            href: can('manage-staff') ? '/(app)/(staffs)' : null,
+            title: 'Team',
+            href: can('manage-staff') ? '/(app)/(users)' : null,
             tabBarItemStyle: { display: can('manage-staff') ? 'flex' : 'none' },
             tabBarIcon: ({ color, focused }) => (
-              <UserCog size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+              <UserCog size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
             ),
           }}
         />
@@ -71,7 +71,7 @@ export default function AppLayout() {
             href: can('record-payment') ? '/(app)/(billing)' : null,
             tabBarItemStyle: { display: can('record-payment') ? 'flex' : 'none' },
             tabBarIcon: ({ color, focused }) => (
-              <CreditCard size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+              <CreditCard size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
             ),
           }}
         />
@@ -82,7 +82,7 @@ export default function AppLayout() {
             href: can('view-reports') ? '/(app)/(reports)' : null,
             tabBarItemStyle: { display: can('view-reports') ? 'flex' : 'none' },
             tabBarIcon: ({ color, focused }) => (
-              <BarChart2 size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+              <BarChart2 size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
             ),
           }}
         />
@@ -104,13 +104,31 @@ export default function AppLayout() {
             tabBarItemStyle: { display: 'none' },
           }}
         />
+        {/* Support stack hidden from bottom bar (accessed via the More menu) */}
+        <Tabs.Screen
+          name="(support)"
+          options={{
+            title: 'Support',
+            href: null,
+            tabBarItemStyle: { display: 'none' },
+          }}
+        />
+        {/* Subscription/plan stack hidden from bottom bar (accessed via the More menu) */}
+        <Tabs.Screen
+          name="(subscription)"
+          options={{
+            title: 'Subscription',
+            href: null,
+            tabBarItemStyle: { display: 'none' },
+          }}
+        />
         <Tabs.Screen
           name="(more)"
           options={{
             title: 'More',
             href: '/(app)/(more)', // Always visible
             tabBarIcon: ({ color, focused }) => (
-              <MoreHorizontal size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+              <MoreHorizontal size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
             ),
           }}
         />

@@ -23,23 +23,50 @@ export default function ProgramScreen() {
   const [activeTab, setActiveTab] = useState<'workout' | 'diet'>('workout');
 
   // Workouts
-  const [exercises, setExercises] = useState([
-    { id: '1', name: 'Deadlift', sets: '3', reps: '8', weight: '100 kg' },
-    { id: '2', name: 'Lat Pulldown', sets: '4', reps: '10', weight: '60 kg' },
-  ]);
+  const [exercises, setExercises] = useState<any[]>([]);
   const [newExName, setNewExName] = useState('');
   const [newExSets, setNewExSets] = useState('');
   const [newExReps, setNewExReps] = useState('');
   const [newExWeight, setNewExWeight] = useState('');
 
   // Diet
-  const [meals, setMeals] = useState([
-    { id: '1', time: '08:00 AM', description: 'Oatmeal, 4 egg whites, banana' },
-    { id: '2', time: '01:00 PM', description: 'Grilled chicken, brown rice, broccoli' },
-    { id: '3', time: '08:00 PM', description: 'Salmon, sweet potato, green salad' },
-  ]);
+  const [meals, setMeals] = useState<any[]>([]);
   const [newMealTime, setNewMealTime] = useState('');
   const [newMealDesc, setNewMealDesc] = useState('');
+
+  React.useEffect(() => {
+    if (member?.aiInsights) {
+      if (Array.isArray(member.aiInsights.workoutPlan)) {
+        setExercises(member.aiInsights.workoutPlan);
+      } else {
+        setExercises([
+          { id: '1', name: 'Deadlift', sets: '3', reps: '8', weight: '100 kg' },
+          { id: '2', name: 'Lat Pulldown', sets: '4', reps: '10', weight: '60 kg' },
+        ]);
+      }
+
+      if (Array.isArray(member.aiInsights.dietPlan)) {
+        setMeals(member.aiInsights.dietPlan);
+      } else {
+        setMeals([
+          { id: '1', time: '08:00 AM', description: 'Oatmeal, 4 egg whites, banana' },
+          { id: '2', time: '01:00 PM', description: 'Grilled chicken, brown rice, broccoli' },
+          { id: '3', time: '08:00 PM', description: 'Salmon, sweet potato, green salad' },
+        ]);
+      }
+    } else if (member) {
+      // Fallback if aiInsights is empty
+      setExercises([
+        { id: '1', name: 'Deadlift', sets: '3', reps: '8', weight: '100 kg' },
+        { id: '2', name: 'Lat Pulldown', sets: '4', reps: '10', weight: '60 kg' },
+      ]);
+      setMeals([
+        { id: '1', time: '08:00 AM', description: 'Oatmeal, 4 egg whites, banana' },
+        { id: '2', time: '01:00 PM', description: 'Grilled chicken, brown rice, broccoli' },
+        { id: '3', time: '08:00 PM', description: 'Salmon, sweet potato, green salad' },
+      ]);
+    }
+  }, [member]);
 
   const handleAddExercise = () => {
     if (!newExName || !newExSets || !newExReps) {
@@ -90,10 +117,17 @@ export default function ProgramScreen() {
     const workoutSummary = exercises.map(ex => `${ex.name} (${ex.sets}x${ex.reps})`).join(', ');
     const dietSummary = meals.map(m => `${m.time}: ${m.description}`).join(' | ');
 
+    const updatedAiInsights = {
+      ...(member?.aiInsights || {}),
+      workoutPlan: exercises,
+      dietPlan: meals,
+    };
+
     const payload = {
       id: id as string,
       data: {
         notes: `Program Updated: Workouts: [${workoutSummary}] | Diets: [${dietSummary}]`,
+        aiInsights: updatedAiInsights,
         timelineUpdate: {
           type: 'program-update',
           title: 'Program Updated',

@@ -40,7 +40,7 @@ export function InvoiceCard({ invoice, onPress }: InvoiceCardProps) {
     statusColor = colors.success;
     statusBg = colors.successLight;
     statusText = colors.successText;
-  } else if (invoice.status === 'Overdue' || invoice.status === 'Unpaid') {
+  } else if (invoice.status === 'Overdue') {
     StatusIcon = AlertCircle;
     statusColor = colors.error;
     statusBg = colors.errorLight;

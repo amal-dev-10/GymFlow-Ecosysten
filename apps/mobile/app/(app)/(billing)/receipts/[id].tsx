@@ -34,7 +34,7 @@ export default function ReceiptDetailScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `GymFlow Receipt: ${receipt.receiptNumber}\nAmount: $${transaction.amount}\nMember: ${transaction.memberName}\nDate: ${new Date(transaction.date).toLocaleDateString()}`,
+        message: `GymFlow Receipt: ${receipt.receiptNumber}\nAmount: ₹${transaction.amount.toLocaleString('en-IN')}\nMember: ${transaction.memberName}\nDate: ${new Date(transaction.date).toLocaleDateString('en-IN')}`,
       });
     } catch (error) {
       console.error(error);
@@ -54,7 +54,7 @@ export default function ReceiptDetailScreen() {
             Payment Successful
           </Text>
           <Text style={{ fontSize: 36, fontWeight: '800', color: colors.text, marginBottom: spacing.xl }}>
-            ${transaction.amount.toLocaleString()}
+            ₹{transaction.amount.toLocaleString('en-IN')}
           </Text>
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />

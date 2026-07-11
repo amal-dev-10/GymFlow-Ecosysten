@@ -53,7 +53,6 @@ export const MemberCard = React.memo(({ member, onPress }: Props) => {
           backgroundColor: colors.surface,
           borderRadius: radius.xl,
           padding: spacing.md,
-          marginBottom: spacing.md,
           borderWidth: 1,
           borderColor: colors.border,
           transform: [{ scale: pressed ? 0.98 : 1 }],
@@ -75,7 +74,7 @@ export const MemberCard = React.memo(({ member, onPress }: Props) => {
               numberOfLines={1}
               style={[
                 styles.name,
-                { color: colors.text, fontSize: typography.sizes.title.fontSize, fontWeight: '700', letterSpacing: -0.3 }
+                { color: colors.text, fontSize: typography.sizes.subtitle.fontSize, fontWeight: '700', letterSpacing: -0.3 }
               ]}
             >
               {memberName(member)}
@@ -83,7 +82,7 @@ export const MemberCard = React.memo(({ member, onPress }: Props) => {
             <StatusBadge label={status.label} type={status.type} />
           </View>
 
-          <Text style={[styles.meta, { color: colors.textSecondary, fontSize: typography.sizes.body.fontSize, fontWeight: '500' }]}>
+          <Text style={[styles.meta, { color: colors.textSecondary, fontSize: typography.sizes.label.fontSize, fontWeight: '500' }]}>
             {memberNumber(member)}
             {plan ? ` · ${plan}` : ''}
           </Text>

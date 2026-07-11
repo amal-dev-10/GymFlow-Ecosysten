@@ -8,7 +8,7 @@ const QUEUE_KEY = 'mutations';
 
 export interface QueuedMutation {
   id: string;
-  type: 'create-member' | 'update-member' | 'create-membership' | 'update-membership' | 'freeze-membership' | 'check-in' | 'check-out';
+  type: 'create-member' | 'update-member' | 'create-membership' | 'update-membership' | 'freeze-membership' | 'check-in' | 'check-out' | 'create-membership-plan';
   payload: any;
   createdAt: string;
 }

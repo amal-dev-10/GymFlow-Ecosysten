@@ -5,8 +5,10 @@ export default function MoreLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="organization" />
+      <Stack.Screen name="announcements" />
       <Stack.Screen name="settings/index" />
-      <Stack.Screen name="settings/profile" />
       <Stack.Screen name="settings/appearance" />
       <Stack.Screen name="settings/notifications" />
       <Stack.Screen name="settings/security" />

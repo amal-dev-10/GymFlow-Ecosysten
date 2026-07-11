@@ -30,15 +30,15 @@ export default function BillingDashboardScreen() {
   };
 
   const renderHeader = () => (
-    <View style={{ paddingBottom: spacing.lg }}>
-      <Animated.View entering={FadeInDown.duration(400).springify()} style={[styles.header, { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, paddingTop: spacing.md }]}>
+    <View style={{ paddingBottom: spacing.lg, paddingHorizontal: spacing.lg }}>
+      <Animated.View entering={FadeInDown.duration(400).springify()} style={[styles.header, { paddingBottom: spacing.md, paddingTop: spacing.md }]}>
         <Text style={{ fontSize: typography.sizes.display.fontSize, fontWeight: '800', color: colors.text, letterSpacing: -0.5 }}>
           Payments
         </Text>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} style={{ paddingHorizontal: spacing.md }}>
-        <View style={{ flexDirection: 'row', paddingHorizontal: spacing.lg, gap: spacing.md }}>
+      <Animated.View entering={FadeInDown.delay(100).duration(400).springify()}>
+        <View style={{ flexDirection: 'row', gap: spacing.md }}>
           <BillingWidget
             title="Today's Revenue"
             value={stats ? `₹${stats.todaysCollections.toLocaleString('en-IN')}` : '₹0'}
@@ -57,12 +57,12 @@ export default function BillingDashboardScreen() {
 
       <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
         <SectionHeader title="Quick Actions" style={{ marginTop: spacing.xl }} />
-        <View style={{ flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
+        <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
           <QuickActionButton
             label="Collect"
             icon={<CreditCard size={24} color="#3B82F6" />}
             color="#3B82F6"
-            onPress={() => router.push('/(app)/(billing)/collect')}
+            onPress={() => router.push('/(app)/(billing)/pending')}
           />
           <QuickActionButton
             label="Invoices"
@@ -86,7 +86,7 @@ export default function BillingDashboardScreen() {
   );
 
   const renderItem = ({ item, index }: { item: any, index: number }) => (
-    <Animated.View entering={FadeInUp.delay(Math.min(index * 50, 400)).duration(300)}>
+    <Animated.View entering={FadeInUp.delay(Math.min(index * 50, 400)).duration(300)} style={{ paddingHorizontal: spacing.lg }}>
       <TransactionItem
         transaction={item}
         onPress={() => item.receiptId ? router.push(`/(app)/(billing)/receipts/${item.receiptId}`) : null}

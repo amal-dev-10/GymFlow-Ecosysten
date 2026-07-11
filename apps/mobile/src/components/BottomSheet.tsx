@@ -79,12 +79,14 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(
                 },
               ]}
             >
-              {/* Grab Handle */}
-              <View style={styles.handleContainer}>
-                <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
-              </View>
+              <Pressable style={{ flex: 1 }} onPress={() => {}}>
+                {/* Grab Handle */}
+                <View style={styles.handleContainer}>
+                  <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
+                </View>
 
-              <View style={styles.content}>{children}</View>
+                <View style={styles.content}>{children}</View>
+              </Pressable>
             </Animated.View>
           )}
         </View>

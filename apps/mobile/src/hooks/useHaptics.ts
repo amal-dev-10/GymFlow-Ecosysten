@@ -32,5 +32,9 @@ export const useHaptics = () => {
     successNotification: () => notification(Haptics.NotificationFeedbackType.Success),
     warningNotification: () => notification(Haptics.NotificationFeedbackType.Warning),
     errorNotification: () => notification(Haptics.NotificationFeedbackType.Error),
+    // Short aliases used throughout the screens (collect payment, check-in, etc.).
+    success: () => notification(Haptics.NotificationFeedbackType.Success),
+    warning: () => notification(Haptics.NotificationFeedbackType.Warning),
+    error: () => notification(Haptics.NotificationFeedbackType.Error),
   };
 };

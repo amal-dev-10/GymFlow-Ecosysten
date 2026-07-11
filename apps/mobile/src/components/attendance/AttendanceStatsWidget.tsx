@@ -25,7 +25,7 @@ export function AttendanceStatsWidget({ activeInside = 0, totalCheckInsToday = 0
   }
 
   return (
-    <View style={[styles.container, { paddingHorizontal: spacing.lg, gap: spacing.md }]}>
+    <View style={[styles.container, { gap: spacing.md }]}>
       <View style={[styles.card, { backgroundColor: colors.surface, borderRadius: radius.lg, borderColor: colors.border, borderWidth: 1 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
           <View style={[styles.iconBox, { backgroundColor: colors.primary + '20' }]}>

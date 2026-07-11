@@ -37,6 +37,7 @@ import { useWorkspaceStore } from '../../../src/store/workspace.store';
 import { useWorkspace } from '../../../src/providers/WorkspaceProvider';
 import { useNetworkStatus } from '../../../src/hooks/useNetworkStatus';
 import { useHaptics } from '../../../src/hooks/useHaptics';
+import { useLiveActivity } from '../../../src/hooks/useLiveActivity';
 import { attendanceApi, membershipsApi, membersApi, rolesApi, leadsApi, getDashboardBillingStats } from '../../../src/lib/api';
 
 import { MetricCard } from '../../../src/components/MetricCard';
@@ -82,6 +83,14 @@ function PulseDot({ color }: { color: string }) {
 const formatToday = () =>
   new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
+function formatElapsed(mins: number): string {
+  if (!mins) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`;
+}
+
 export default function DashboardScreen() {
   const { colors, typography, spacing, radius } = useTheme();
   const router = useRouter();
@@ -91,6 +100,11 @@ export default function DashboardScreen() {
   const isTrainer = role?.toLowerCase().includes('trainer');
   const { isOffline } = useNetworkStatus();
   const { mediumImpact } = useHaptics();
+
+  // Keep the header alert badge (unreadCount) live from the moment the app
+  // opens, not just after the inbox is visited. Shares query cache with the
+  // inbox screen so it's deduped.
+  useLiveActivity();
 
   const gymId = activeGymId || '';
 
@@ -353,18 +367,60 @@ export default function DashboardScreen() {
                     style={{ flex: undefined, paddingVertical: spacing.xl }}
                   />
                 ) : (
-                  <Card>
-                    {(activeInsideQuery.data || []).slice(0, 5).map((m: any, idx: number, arr: any[]) => (
-                      <Animated.View key={m.id} entering={FadeInDown.duration(300).delay(idx * 60)}>
-                        <ListItem
-                          title={m.name}
-                          subtitle={m.memberNumber || ''}
-                          leftComponent={<UserAvatar name={m.name} size={36} />}
-                          onPress={() => router.push(`/(app)/(members)/${m.memberId}`)}
-                          style={idx === arr.length - 1 ? { borderBottomWidth: 0 } : undefined}
-                        />
-                      </Animated.View>
-                    ))}
+                  <Card padded={false}>
+                    {(activeInsideQuery.data || []).slice(0, 5).map((m: any, idx: number, arr: any[]) => {
+                      const elapsedStr = formatElapsed(m.elapsedMinutes);
+                      return (
+                        <Animated.View key={m.id} entering={FadeInDown.duration(300).delay(idx * 60)}>
+                          <Pressable
+                            onPress={() => router.push(`/(app)/(members)/${m.memberId}`)}
+                            style={({ pressed }) => [
+                              styles.insideMemberRow,
+                              {
+                                borderBottomWidth: idx < arr.length - 1 ? StyleSheet.hairlineWidth : 0,
+                                borderBottomColor: colors.border,
+                                backgroundColor: pressed ? colors.background : 'transparent',
+                                paddingVertical: spacing.md,
+                                paddingHorizontal: spacing.lg,
+                              }
+                            ]}
+                          >
+                            <UserAvatar name={m.name} size={40} />
+                            
+                            <View style={{ flex: 1, marginLeft: spacing.md }}>
+                              <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700' }}>
+                                {m.name}
+                              </Text>
+                              <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                                {m.planName}
+                              </Text>
+                            </View>
+
+                            <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                              <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '600' }}>
+                                In: {m.checkInTime}
+                              </Text>
+                              <View style={[
+                                styles.timePill,
+                                {
+                                  backgroundColor: m.isOverLimit ? colors.error + '12' : colors.primaryLight,
+                                  borderColor: m.isOverLimit ? colors.error + '30' : colors.primary + '30',
+                                  marginTop: 4,
+                                }
+                              ]}>
+                                <Text style={{
+                                  fontSize: 10,
+                                  fontWeight: '700',
+                                  color: m.isOverLimit ? colors.error : colors.primary,
+                                }}>
+                                  {elapsedStr}
+                                </Text>
+                              </View>
+                            </View>
+                          </Pressable>
+                        </Animated.View>
+                      );
+                    })}
                   </Card>
                 )}
               </>
@@ -623,5 +679,15 @@ const styles = StyleSheet.create({
   gridRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  insideMemberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
   },
 });

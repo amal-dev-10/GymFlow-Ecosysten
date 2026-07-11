@@ -35,7 +35,7 @@ export function QRScannerOverlay() {
   });
 
   return (
-    <View style={StyleSheet.absoluteFillObject}>
+    <View style={StyleSheet.absoluteFill}>
       {/* Semi-transparent overlay with a cutout */}
       <View style={styles.overlayRow}>
         <View style={[styles.overlayBg, { backgroundColor: 'rgba(0,0,0,0.6)' }]} />

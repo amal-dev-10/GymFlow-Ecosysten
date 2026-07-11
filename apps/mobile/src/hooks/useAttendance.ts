@@ -34,26 +34,24 @@ export function useCheckIn() {
   const { isOffline } = useNetworkStatus();
 
   return useMutation({
-    mutationFn: async ({ memberId, gymId, token }: { memberId?: string; gymId: string; token?: string }) => {
+    mutationFn: async ({ memberId, gymId, token, method = 'FRONT_DESK', memberName }: { memberId?: string; gymId: string; token?: string; method?: string; memberName?: string }) => {
       if (isOffline && memberId) {
         enqueue({
           type: 'check-in',
-          payload: { memberId, gymId },
+          payload: { memberId, gymId, method, memberName },
         });
         return { success: true, offline: true, memberId };
       }
       
-      if (!memberId) throw new Error("Member ID is required for check-in");
+      if (!memberId && !token) throw new Error("Member ID or QR Token is required for check-in");
 
-      return membersApi.checkIn(memberId, gymId);
+      return attendanceApi.checkIn({ memberId, gymId, method, memberName, token });
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['activeMembers', variables.gymId] });
       queryClient.invalidateQueries({ queryKey: ['attendanceStats', variables.gymId] });
       queryClient.invalidateQueries({ queryKey: ['attendanceLogs', variables.gymId] });
-      if (variables.memberId) {
-        queryClient.invalidateQueries({ queryKey: ['member', variables.memberId] });
-      }
+      queryClient.invalidateQueries({ queryKey: ['members'] });
     },
   });
 }
@@ -63,7 +61,7 @@ export function useCheckOut() {
   const { isOffline } = useNetworkStatus();
 
   return useMutation({
-    mutationFn: async ({ memberId, gymId }: { memberId: string; gymId: string }) => {
+    mutationFn: async ({ memberId, gymId, attendanceId }: { memberId: string; gymId: string; attendanceId?: string }) => {
       if (isOffline) {
         enqueue({
           type: 'check-out',
@@ -71,13 +69,13 @@ export function useCheckOut() {
         });
         return { success: true, offline: true, memberId };
       }
-      return membersApi.checkOut(memberId, gymId);
+      return attendanceApi.checkOut(attendanceId || memberId);
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['activeMembers', variables.gymId] });
       queryClient.invalidateQueries({ queryKey: ['attendanceStats', variables.gymId] });
       queryClient.invalidateQueries({ queryKey: ['attendanceLogs', variables.gymId] });
-      queryClient.invalidateQueries({ queryKey: ['member', variables.memberId] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
     },
   });
 }

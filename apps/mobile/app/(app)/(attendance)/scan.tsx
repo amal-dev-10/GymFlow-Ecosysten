@@ -68,55 +68,83 @@ export default function QRScannerScreen() {
     setScanned(true);
     mediumImpact();
 
-    // In GymFlow, QR codes should be in format `gymflow://member/{memberId}` or just `{memberId}`
-    // For demo purposes, we'll try to extract memberId
-    let memberId = data;
-    if (data.startsWith('gymflow://member/')) {
+    let memberId: string | undefined = undefined;
+    let token: string | undefined = undefined;
+
+    if (data.startsWith('eyJ')) {
+      // It's a JWT token
+      token = data;
+    } else if (data.startsWith('gymflow://member/')) {
       memberId = data.split('gymflow://member/')[1];
     } else {
-      // If it's a random QR, we might just fail it unless it matches uuid format
       if (data.length < 10) {
         hapticError();
         setValidationState('error');
         setValidationData({ subtitle: 'Invalid QR Code format' });
         return;
       }
+      memberId = data;
     }
 
-    const mutation = mode === 'check-in' ? checkInMutation : checkOutMutation;
-
-    mutation.mutate(
-      { memberId, gymId: activeGymId || '' },
-      {
-        onSuccess: (res: any) => {
-          hapticSuccess();
-          setValidationState('success');
-          setValidationData({ 
-            title: mode === 'check-in' ? 'Check-in Successful' : 'Check-out Successful',
-            memberName: `Member ${memberId.slice(0,4)}` 
-          });
-        },
-        onError: (err: any) => {
-          hapticError();
-          // Based on error message, map to frozen/expired.
-          const msg = err.message || 'Unknown Error';
-          if (msg.toLowerCase().includes('frozen')) {
-            setValidationState('frozen');
-          } else if (msg.toLowerCase().includes('expire')) {
-            setValidationState('expired');
-          } else {
-            setValidationState('error');
+    if (mode === 'check-in') {
+      checkInMutation.mutate(
+        { memberId, token, gymId: activeGymId || '', method: 'QR_SCAN' },
+        {
+          onSuccess: (res: any) => {
+            hapticSuccess();
+            if (String(res?.status || '').toLowerCase() === 'denied') {
+              hapticError();
+              setValidationState('error');
+              setValidationData({ subtitle: res?.reason || 'Entry denied — no active membership.', memberName: res?.memberName });
+              return;
+            }
+            setValidationState('success');
+            setValidationData({
+              title: 'Check-in Successful',
+              memberName: res?.memberName || res?.member?.name || 'Member',
+            });
+          },
+          onError: (err: any) => {
+            hapticError();
+            const msg = err.message || 'Unknown Error';
+            if (msg.toLowerCase().includes('frozen')) {
+              setValidationState('frozen');
+            } else if (msg.toLowerCase().includes('expire')) {
+              setValidationState('expired');
+            } else {
+              setValidationState('error');
+            }
+            setValidationData({ subtitle: msg });
           }
-          setValidationData({ subtitle: msg });
         }
-      }
-    );
+      );
+    } else {
+      // Check-out
+      checkOutMutation.mutate(
+        { memberId: memberId || data, gymId: activeGymId || '' },
+        {
+          onSuccess: (res: any) => {
+            hapticSuccess();
+            setValidationState('success');
+            setValidationData({
+              title: 'Check-out Successful',
+              memberName: res?.memberName || res?.member?.name || 'Member',
+            });
+          },
+          onError: (err: any) => {
+            hapticError();
+            setValidationState('error');
+            setValidationData({ subtitle: err.message || 'Check-out failed' });
+          }
+        }
+      );
+    }
   };
 
   return (
     <View style={styles.container}>
-      <CameraView 
-        style={StyleSheet.absoluteFillObject} 
+      <CameraView
+        style={StyleSheet.absoluteFill}
         facing="back"
         enableTorch={isFlashOn}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
@@ -131,6 +159,7 @@ export default function QRScannerScreen() {
         <IconButton
           icon={<X size={24} color="#FFF" />}
           onPress={() => router.back()}
+          accessibilityLabel="Close scanner"
           style={styles.actionBtn}
         />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -150,6 +179,7 @@ export default function QRScannerScreen() {
         <IconButton
           icon={isFlashOn ? <Zap size={24} color="#FFF" /> : <ZapOff size={24} color="#FFF" />}
           onPress={() => setIsFlashOn(!isFlashOn)}
+          accessibilityLabel="Toggle flash"
           style={styles.actionBtn}
         />
       </SafeAreaView>

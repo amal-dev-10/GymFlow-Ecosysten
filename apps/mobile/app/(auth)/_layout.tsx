@@ -26,6 +26,7 @@ export default function AuthLayout() {
         name="login"
         options={{
           headerShown: false,
+          gestureEnabled: false,
         }}
       />
     </Stack>

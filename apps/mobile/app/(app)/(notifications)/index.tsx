@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, ScrollView, Pressable, TextInput } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, Pressable, TextInput, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Bell, Calendar, CheckSquare, Clock, Filter, Search, ShieldCheck } from 'lucide-react-native';
@@ -9,6 +9,7 @@ import { useTheme } from '../../../src/theme/theme';
 import { useNotificationsStore, NotificationItem, TaskItem } from '../../../src/store/notifications.store';
 import { useWorkspace } from '../../../src/providers/WorkspaceProvider';
 import { useHaptics } from '../../../src/hooks/useHaptics';
+import { useLiveActivity } from '../../../src/hooks/useLiveActivity';
 
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
@@ -19,6 +20,9 @@ export default function NotificationsInboxScreen() {
   const router = useRouter();
   const { lightImpact, successNotification } = useHaptics();
   const { can } = useWorkspace();
+
+  // Derive the real feed (expiring memberships + outstanding dues) into the store.
+  const { isFetching, refetch } = useLiveActivity();
 
   const { notifications, tasks, markAllRead, completeTask, deleteNotification } = useNotificationsStore();
 
@@ -108,7 +112,10 @@ export default function NotificationsInboxScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 100 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 100 }}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}
+      >
         {activeTab === 'alerts' ? (
           /* NOTIFICATIONS / ALERTS LIST */
           filteredNotifications.length === 0 ? (

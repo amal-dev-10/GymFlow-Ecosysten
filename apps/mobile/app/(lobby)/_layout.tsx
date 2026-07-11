@@ -20,6 +20,7 @@ export default function LobbyLayout() {
     >
       <Stack.Screen name="organizations" options={{ title: 'Select Organization', headerBackVisible: false }} />
       <Stack.Screen name="gyms" options={{ title: 'Select Gym' }} />
+      <Stack.Screen name="create-organization" options={{ title: 'Create Organization' }} />
     </Stack>
   );
 }

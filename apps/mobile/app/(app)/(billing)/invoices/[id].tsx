@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, Text, ScrollView, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { FileText, CheckCircle2, Clock, AlertCircle } from 'lucide-react-native';
+import { useLocalSearchParams, Stack } from 'expo-router';
+import { FileText, CheckCircle2, Clock, AlertCircle, ChevronLeft } from 'lucide-react-native';
 
 import { useTheme } from '@/theme/theme';
 import { useInvoice } from '@/hooks/useBilling';
-import { PrimaryButton } from '@/components';
+import { PrimaryButton, IconButton } from '@/components';
 import { useRouter as useExpoRouter } from 'expo-router';
 
 export default function InvoiceDetailScreen() {
@@ -43,6 +43,18 @@ export default function InvoiceDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen
+        options={{
+          headerLeft: () => (
+            <IconButton
+              icon={<ChevronLeft size={24} color={colors.text} />}
+              onPress={() => router.back()}
+              accessibilityLabel="Go back"
+              style={{ marginLeft: -8 }}
+            />
+          ),
+        }}
+      />
       <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl }]}>
@@ -61,7 +73,7 @@ export default function InvoiceDetailScreen() {
           </View>
 
           <View style={{ marginTop: spacing.xl }}>
-            <Text style={{ fontSize: typography.sizes.display.fontSize, color: colors.textSecondary, textTransform: 'uppercase', fontWeight: '700' }}>
+            <Text style={{ fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8 }}>
               Billed To
             </Text>
             <Text style={{ fontSize: typography.sizes.title.fontSize, fontWeight: '700', color: colors.text, marginTop: 4 }}>
@@ -71,7 +83,7 @@ export default function InvoiceDetailScreen() {
 
           <View style={[styles.row, { marginTop: spacing.lg }]}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: typography.sizes.display.fontSize, color: colors.textSecondary, textTransform: 'uppercase', fontWeight: '700' }}>
+              <Text style={{ fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8 }}>
                 Date Issued
               </Text>
               <Text style={{ fontSize: typography.sizes.body.fontSize, fontWeight: '600', color: colors.text, marginTop: 4 }}>
@@ -79,7 +91,7 @@ export default function InvoiceDetailScreen() {
               </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: typography.sizes.display.fontSize, color: colors.textSecondary, textTransform: 'uppercase', fontWeight: '700' }}>
+              <Text style={{ fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8 }}>
                 Due Date
               </Text>
               <Text style={{ fontSize: typography.sizes.body.fontSize, fontWeight: '600', color: colors.text, marginTop: 4 }}>
@@ -90,7 +102,7 @@ export default function InvoiceDetailScreen() {
 
           <View style={[styles.divider, { backgroundColor: colors.border, marginVertical: spacing.xl }]} />
 
-          <Text style={{ fontSize: typography.sizes.display.fontSize, color: colors.textSecondary, textTransform: 'uppercase', fontWeight: '700', marginBottom: spacing.md }}>
+          <Text style={{ fontSize: 11, color: colors.textSecondary, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8, marginBottom: spacing.md }}>
             Items
           </Text>
           {invoice.items.map((item, idx) => (
@@ -99,7 +111,7 @@ export default function InvoiceDetailScreen() {
                 {item.description}
               </Text>
               <Text style={{ fontSize: typography.sizes.body.fontSize, fontWeight: '600', color: colors.text }}>
-                ${item.amount.toLocaleString()}
+                ₹{item.amount.toLocaleString('en-IN')}
               </Text>
             </View>
           ))}
@@ -111,9 +123,28 @@ export default function InvoiceDetailScreen() {
               Total
             </Text>
             <Text style={{ fontSize: typography.sizes.title.fontSize, fontWeight: '800', color: colors.primary }}>
-              ${invoice.total.toLocaleString()}
+              ₹{invoice.total.toLocaleString('en-IN')}
             </Text>
           </View>
+
+          <View style={[styles.row, { marginTop: spacing.sm }]}>
+            <Text style={{ flex: 1, fontSize: typography.sizes.body.fontSize, color: colors.textSecondary }}>
+              Paid
+            </Text>
+            <Text style={{ fontSize: typography.sizes.body.fontSize, fontWeight: '700', color: colors.success }}>
+              ₹{invoice.amountPaid.toLocaleString('en-IN')}
+            </Text>
+          </View>
+          {invoice.outstanding > 0 && (
+            <View style={[styles.row, { marginTop: spacing.xs }]}>
+              <Text style={{ flex: 1, fontSize: typography.sizes.body.fontSize, color: colors.textSecondary }}>
+                Outstanding
+              </Text>
+              <Text style={{ fontSize: typography.sizes.body.fontSize, fontWeight: '700', color: colors.error }}>
+                ₹{invoice.outstanding.toLocaleString('en-IN')}
+              </Text>
+            </View>
+          )}
 
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '15', alignSelf: 'flex-start', marginTop: spacing.md, borderRadius: radius.full }]}>
             <StatusIcon size={16} color={statusColor} />
@@ -125,11 +156,11 @@ export default function InvoiceDetailScreen() {
 
       </ScrollView>
 
-      {invoice.status !== 'Paid' && (
+      {invoice.outstanding > 0 && invoice.status !== 'Cancelled' && (
         <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
           <PrimaryButton
-            label="Collect Payment"
-            onPress={() => router.push('/(app)/(billing)/collect')}
+            label={`Collect ₹${invoice.outstanding.toLocaleString('en-IN')}`}
+            onPress={() => router.push(`/(app)/(billing)/collect?invoiceId=${invoice.id}`)}
           />
         </View>
       )}

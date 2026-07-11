@@ -33,7 +33,7 @@ export default function CreateMembershipScreen() {
   const { data: plans, isLoading: isLoadingPlans } = useMembershipPlans();
   const createMutation = useCreateMembership();
 
-  const members = useMemo(() => membersPage?.pages?.[0]?.data || membersPage?.data || [], [membersPage]);
+  const members = useMemo(() => (membersPage as any)?.pages?.[0]?.data || (membersPage as any)?.data || [], [membersPage]);
 
   const handleNext = () => {
     if (step === 'SelectMember') {

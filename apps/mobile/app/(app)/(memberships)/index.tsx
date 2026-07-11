@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, Text, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { View, StyleSheet, Text, RefreshControl, ActivityIndicator, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus, Search, Filter } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +28,15 @@ export default function MembershipListScreen() {
   const router = useRouter();
   const { can } = useWorkspace();
   const { isOffline } = useNetworkStatus();
+
+  useEffect(() => {
+    const backAction = () => {
+      router.replace('/(app)/(more)');
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [router]);
 
   const [search, setSearch] = useState('');
 
@@ -77,7 +86,7 @@ export default function MembershipListScreen() {
   const TypedFlashList = FlashList as any;
 
   return (
-    <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.container, { backgroundColor: colors.background }]}>
       {isOffline && <OfflineBanner />}
 
       {/* Premium Header */}
@@ -95,7 +104,7 @@ export default function MembershipListScreen() {
                 letterSpacing: -0.5,
               }}
             >
-              Memberships
+              Active Purchases
             </Animated.Text>
             {!isLoading && (
               <Animated.Text
@@ -163,6 +172,7 @@ export default function MembershipListScreen() {
         <FloatingActionButton
           icon={<Plus size={24} color={colors.textOnPrimary} />}
           onPress={() => router.push('/(app)/(memberships)/create')}
+          accessibilityLabel="Add Membership"
         />
       )}
     </SafeAreaView>

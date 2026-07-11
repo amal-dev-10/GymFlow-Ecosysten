@@ -25,12 +25,22 @@ export default function FreezeMembershipScreen() {
   const handleSubmit = async () => {
     if (!startDate || !endDate) return Alert.alert('Validation', 'Please provide start and end dates.');
 
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+      return Alert.alert('Validation', 'End date must be after the start date.');
+    }
+    // durationDays drives how far the membership expiry is extended.
+    const durationDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
     try {
       await freezeMutation.mutateAsync({
         memberMembershipId: membership.id,
         startDate,
         endDate,
-        reason,
+        durationDays,
+        reasonCategory: 'Other',
+        reasonNotes: reason,
       });
       Alert.alert('Success', 'Membership freeze requested successfully.');
       router.back();
@@ -98,8 +108,8 @@ export default function FreezeMembershipScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, padding: spacing.lg }]}>
-        <SecondaryButton title="Cancel" onPress={() => router.back()} style={{ flex: 1, marginRight: spacing.sm }} />
-        <PrimaryButton title="Submit Request" onPress={handleSubmit} isLoading={freezeMutation.isPending} style={{ flex: 2 }} />
+        <SecondaryButton label="Cancel" onPress={() => router.back()} style={{ flex: 1, marginRight: spacing.sm }} />
+        <PrimaryButton label="Submit Request" onPress={handleSubmit} loading={freezeMutation.isPending} style={{ flex: 2 }} />
       </View>
     </View>
   );

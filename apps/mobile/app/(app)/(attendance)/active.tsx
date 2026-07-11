@@ -21,16 +21,16 @@ export default function ActiveMembersScreen() {
   const { data: members, isLoading, refetch, isFetching } = useActiveMembers(activeGymId || '');
   const checkOutMutation = useCheckOut();
 
-  const handleCheckOut = (member: any) => {
+  const handleCheckOut = (item: any) => {
     Alert.alert(
       'Check-Out',
-      `Are you sure you want to check out ${member.firstName}?`,
+      `Are you sure you want to check out ${item.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Check-Out', 
           onPress: () => {
-            checkOutMutation.mutate({ memberId: member.id, gymId: activeGymId || '' }, {
+            checkOutMutation.mutate({ memberId: item.memberId, gymId: activeGymId || '', attendanceId: item.id }, {
               onSuccess: () => {
                 success();
               }
@@ -43,17 +43,18 @@ export default function ActiveMembersScreen() {
 
   const renderItem = ({ item }: { item: any }) => (
     <ListItem
-      title={`${item.firstName} ${item.lastName}`}
-      subtitle={`Checked in at ${new Date(item.checkInTime || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-      leftComponent={<UserAvatar name={`${item.firstName} ${item.lastName}`} size={40} />}
+      title={item.name}
+      subtitle={`Checked in at ${item.checkInTime}`}
+      leftComponent={<UserAvatar name={item.name} size={40} />}
       rightComponent={
         <IconButton 
           icon={<LogOut size={20} color={colors.primary} />} 
           onPress={() => handleCheckOut(item)}
+          accessibilityLabel="Check out member"
           style={{ backgroundColor: colors.primary + '10' }}
         />
       }
-      onPress={() => router.push(`/(app)/(members)/${item.id}`)}
+      onPress={() => router.push(`/(app)/(members)/${item.memberId}`)}
       style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border }}
     />
   );

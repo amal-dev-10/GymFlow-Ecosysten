@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { useRouter as useExpoRouter } from 'expo-router';
-import { Receipt } from 'lucide-react-native';
+import { useRouter as useExpoRouter, Stack } from 'expo-router';
+import { Receipt, ChevronLeft } from 'lucide-react-native';
 
 import { useTheme } from '@/theme/theme';
 import { useWorkspaceStore } from '@/store/workspace.store';
@@ -10,6 +10,7 @@ import { useInvoices } from '@/hooks/useBilling';
 
 import { InvoiceCard } from '@/components/billing/InvoiceCard';
 import { EmptyState } from '@/components/EmptyState';
+import { IconButton } from '@/components/IconButton';
 
 export default function InvoicesScreen() {
   const { colors, spacing } = useTheme();
@@ -20,6 +21,19 @@ export default function InvoicesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen
+        options={{
+          title: 'Invoices',
+          headerLeft: () => (
+            <IconButton
+              icon={<ChevronLeft size={24} color={colors.text} />}
+              onPress={() => router.back()}
+              accessibilityLabel="Go back"
+              style={{ marginLeft: -8 }}
+            />
+          ),
+        }}
+      />
       <FlashList
         data={invoices || []}
         renderItem={({ item }: { item: any }) => (

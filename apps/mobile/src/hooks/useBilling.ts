@@ -49,17 +49,29 @@ export function useReceipt(receiptId: string) {
   });
 }
 
+interface CollectPaymentInput {
+  invoiceId: string;
+  amount: number;
+  method?: string;
+  memberName?: string;
+  type?: string;
+}
+
 export function useCollectPayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: any) => billingApi.collectPayment(payload),
-    onSuccess: (data: TransactionDto, variables: any) => {
-      // Invalidate relevant queries to refresh the UI
+    mutationFn: (payload: CollectPaymentInput) => billingApi.collectPayment(payload),
+    onSuccess: (_data: TransactionDto, variables: CollectPaymentInput) => {
+      // Refresh every view that reads off the subscription ledger.
       queryClient.invalidateQueries({ queryKey: ['billingDashboard'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['pendingDues'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', variables.invoiceId] });
+      // Membership/member screens surface the same amountPaid/outstanding.
+      queryClient.invalidateQueries({ queryKey: ['memberships'] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
     },
   });
 }

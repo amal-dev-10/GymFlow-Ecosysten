@@ -21,7 +21,7 @@ export default function SettingsDashboard() {
     {
       title: 'Account Settings',
       items: [
-        { label: 'Edit Profile & Branch Details', icon: User, color: '#3B82F6', route: '/(app)/(more)/settings/profile' },
+        { label: 'Edit Profile & Branch Details', icon: User, color: '#3B82F6', route: '/(app)/(more)/profile' },
       ]
     },
     {
