@@ -7,5 +7,8 @@ echo "[api] Syncing database schema (prisma db push)..."
 # sync. --skip-generate because the client is already generated in the image.
 ( cd /app/packages/database && npx prisma db push --skip-generate )
 
+echo "[api] Running automatic database seeds..."
+node /app/packages/database/run-seeds.js
+
 echo "[api] Starting NestJS server on port ${PORT:-5000}..."
 exec node /app/apps/api/dist/main
