@@ -142,6 +142,21 @@ export class PlatformAuthorizationService {
 
   async getEffectivePermissionsForUser(platformUserId: string): Promise<EffectivePermission[]> {
     await this.expireStaleAssignments();
+    const adminUser = await this.prisma.platformAdminUser.findUnique({
+      where: { id: platformUserId },
+    });
+    if (adminUser?.role === 'SUPER_ADMIN') {
+      const allPermissions = await this.prisma.platformPermission.findMany();
+      return allPermissions.map((p) => ({
+        key: p.key,
+        effect: 'ALLOW',
+        label: p.label,
+        categoryKey: p.categoryKey,
+        isSensitive: p.isSensitive,
+        sourceRoleIds: ['SUPER_ADMIN_SYSTEM'],
+        sourceRoleNames: ['Super Administrator'],
+      }));
+    }
     const assignments = await this.prisma.platformUserRoleAssignment.findMany({
       where: { platformUserId, status: 'Active' },
     });
