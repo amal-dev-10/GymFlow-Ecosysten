@@ -793,6 +793,8 @@ function AttendanceRecordsContent() {
  </span>
  <span className="text-[9px] text-neutral-500 block">{outDate.toLocaleDateString()}</span>
  </div>
+ ) : r.status === 'Denied Entry' ? (
+ <span className="text-xs text-neutral-400 italic">N/A</span>
  ) : (
  <span className="text-xs font-bold text-success italic">Active Inside</span>
  )}
@@ -802,14 +804,19 @@ function AttendanceRecordsContent() {
  </td>
  <td className="p-4">
  <span className={`px-2 py-0.5 text-[9px] font-extrabold rounded-full border uppercase ${
- r.status === 'Denied Entry' 
- ? 'bg-danger-light border-red-200 text-danger' 
+ r.status === 'Denied Entry'
+ ? 'bg-danger-light border-red-200 text-danger'
  : r.status === 'Active Session'
  ? 'bg-success-light border-green-200 text-success'
  : 'bg-neutral-50 border-neutral-200 text-neutral-700'
  }`}>
  {r.status}
  </span>
+ {r.reason && (
+ <span className={`block mt-1 text-[9px] font-medium max-w-[160px] ${r.status === 'Denied Entry' ? 'text-danger' : 'text-amber-700'}`}>
+ {r.reason}
+ </span>
+ )}
  </td>
  <td className="p-4">
  <span className="text-[11px] text-neutral-600 font-semibold">{r.method}</span>
@@ -1304,6 +1311,12 @@ function AttendanceRecordsContent() {
  <div className="grid grid-cols-2 gap-y-2 text-xs">
  <div className="text-neutral-500">Status</div>
  <div className="font-bold text-neutral-800">{selectedRecord.status}</div>
+ {selectedRecord.reason && (
+ <>
+ <div className="text-neutral-500">Reason</div>
+ <div className={`font-semibold ${selectedRecord.status === 'Denied Entry' ? 'text-danger' : 'text-amber-700'}`}>{selectedRecord.reason}</div>
+ </>
+ )}
  <div className="text-neutral-500">Method</div>
  <div className="font-semibold text-neutral-700">{selectedRecord.method}</div>
  <div className="text-neutral-500">Duration</div>
@@ -1359,6 +1372,8 @@ function AttendanceRecordsContent() {
  <span className="text-xs font-bold text-neutral-700 block">Check-Out Event Logs</span>
  {selectedRecord.checkOutTime ? (
  <span className="text-[10px] text-neutral-500">Checked out at {new Date(selectedRecord.checkOutTime).toLocaleString()} &bull; Stay duration: {selectedRecord.durationText}</span>
+ ) : selectedRecord.status === 'Denied Entry' ? (
+ <span className="text-[10px] text-danger font-semibold italic">Entry was denied - member never checked in.</span>
  ) : (
  <span className="text-[10px] text-success font-semibold italic">Member is currently active inside the gym branch.</span>
  )}
@@ -1371,8 +1386,10 @@ function AttendanceRecordsContent() {
  <AlertTriangle className="w-3.5 h-3.5" />
  </div>
  <div>
- <span className="text-xs font-bold text-neutral-700 block">Staff Correction Overrides</span>
- <span className="text-[10px] text-neutral-500 block">Audit Log Reason:"{selectedRecord.reason}"</span>
+ <span className="text-xs font-bold text-neutral-700 block">
+ {selectedRecord.status === 'Denied Entry' ? 'Reason for Denial' : 'Staff Correction / Validation Note'}
+ </span>
+ <span className="text-[10px] text-neutral-500 block">"{selectedRecord.reason}"</span>
  </div>
  </div>
  )}

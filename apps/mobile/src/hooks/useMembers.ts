@@ -115,16 +115,30 @@ function buildTimeline(member: MemberDto): TimelineEvent[] {
     createdAt: member.createdAt,
   });
 
-  // 2. Attendances (each check-in / check-out at its own timestamp)
+  // 2. Attendances (each check-in / check-out at its own timestamp). A
+  //    Denied attempt still has a checkInTime (the attempt itself happened),
+  //    but must never read as a successful "Checked In" — that would hide
+  //    the fact that entry was blocked, and why.
   (member.attendances || []).forEach((att: any) => {
+    const denied = String(att.status || '').toLowerCase() === 'denied';
     if (att.id && att.checkInTime) {
-      add({
-        id: `checkin-${att.id}`,
-        type: 'checked_in',
-        title: 'Checked In',
-        description: att.method === 'QR_SCAN' ? 'Checked in via mobile QR code' : 'Checked in at front desk',
-        createdAt: att.checkInTime,
-      });
+      add(
+        denied
+          ? {
+              id: `checkin-${att.id}`,
+              type: 'checkin_denied',
+              title: 'Entry Denied',
+              description: att.reason || 'Blocked by security validation rules.',
+              createdAt: att.checkInTime,
+            }
+          : {
+              id: `checkin-${att.id}`,
+              type: 'checked_in',
+              title: 'Checked In',
+              description: att.method === 'QR_SCAN' ? 'Checked in via mobile QR code' : 'Checked in at front desk',
+              createdAt: att.checkInTime,
+            }
+      );
     }
     if (att.id && att.checkOutTime) {
       add({

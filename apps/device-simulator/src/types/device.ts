@@ -20,12 +20,13 @@ export type DoorState = "LOCKED" | "OPENING" | "OPEN" | "CLOSING";
 export type ScanMethod = "Fingerprint" | "QR" | "RFID" | "Face" | "Manual";
 
 export interface DeviceConfig {
-  serverUrl: string;
   deviceName: string;
+  vendor: string;
+  model: string;
   serialNumber: string;
-  secretKey: string;
-  deviceType: DeviceType;
-  gymId: string;
+  deviceKey: string;
+  webhookUrl: string;
+  heartbeatInterval: number;
 }
 
 export interface DeviceRecord {

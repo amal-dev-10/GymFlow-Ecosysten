@@ -53,6 +53,26 @@ export function useGlobalAttendanceNotifications(gymIds: string[]) {
         notify(`${record?.memberName || 'Member'} checked out.`, 'info');
       });
 
+      // Fires for EVERY check-in attempt (Granted/Warning/Denied), from any
+      // source - terminal, mobile app, or a biometric device. 'Granted' is
+      // already covered by attendance:check-in above; this is what actually
+      // surfaces a Denied attempt (or a Warning-flagged grant) to staff
+      // anywhere in the workspace - previously nothing subscribed to this
+      // event at all, so a denial was invisible outside the exact page that
+      // triggered it.
+      socket.on('membership:validation', (payload: any) => {
+        if (!payload || payload.status === 'Granted') return;
+        queryClient.invalidateQueries({ queryKey: ['attendance'] });
+        queryClient.invalidateQueries({ queryKey: ['gym', 'occupancy'] });
+        const who = payload.memberName || 'A member';
+        if (payload.status === 'Denied') {
+          notify(`${who} was denied entry${payload.reason ? `: ${payload.reason}` : '.'}`, 'error');
+          playBeep(false);
+        } else if (payload.status === 'Warning') {
+          notify(`${who} checked in with a warning${payload.reason ? `: ${payload.reason}` : '.'}`, 'error');
+        }
+      });
+
       socket.on('alert', (alert: any) => {
         notify(typeof alert === 'string' ? alert : alert?.message || 'Attendance alert received', 'error');
         playBeep(false);

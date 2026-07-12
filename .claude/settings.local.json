@@ -334,7 +334,8 @@
       "Bash(sh -n docker/api-entrypoint.sh)",
       "Bash(timeout 120 docker run --rm -v __TRACKED_VAR__/docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro nginx:1.27-alpine nginx -t)",
       "Bash(docker run *)",
-      "Bash(node -e \"const p=require\\('./package.json'\\); const d={...p.dependencies,...p.devDependencies}; console.log\\('expo-linear-gradient:', d['expo-linear-gradient']\\); console.log\\('expo-blur:', d['expo-blur']\\); console.log\\('reanimated:', d['react-native-reanimated']\\); console.log\\('svg:', d['react-native-svg']\\);\")"
+      "Bash(node -e \"const p=require\\('./package.json'\\); const d={...p.dependencies,...p.devDependencies}; console.log\\('expo-linear-gradient:', d['expo-linear-gradient']\\); console.log\\('expo-blur:', d['expo-blur']\\); console.log\\('reanimated:', d['react-native-reanimated']\\); console.log\\('svg:', d['react-native-svg']\\);\")",
+      "Bash(cd /Users/developer/.gemini/antigravity-ide/scratch/gym-saas/apps/api && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -iE \"attendance.service|device-event|error TS\"; echo \"--- api done ---\" *)"
     ]
   }
 }

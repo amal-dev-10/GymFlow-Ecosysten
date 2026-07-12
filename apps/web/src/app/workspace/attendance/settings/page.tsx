@@ -95,7 +95,8 @@ function AttendanceSettingsContent() {
  }, []);
 
  const [autoCloseSessions, setAutoCloseSessions] = useState(true);
- const [gracePeriod, setGracePeriod] = useState(15); // minutes
+ const [allowGracePeriod, setAllowGracePeriod] = useState(false);
+ const [gracePeriodDays, setGracePeriodDays] = useState(3); // days after membership expiry
  const [branchClosingTime, setBranchClosingTime] = useState('22:00');
  const [autoCheckOutBuffer, setAutoCheckOutBuffer] = useState(15); // minutes after close
  const [maxSessionDuration, setMaxSessionDuration] = useState(180); // minutes
@@ -230,7 +231,8 @@ function AttendanceSettingsContent() {
  if (settings.maxCapacity !== undefined) setMaxCapacity(settings.maxCapacity);
  if (settings.validateExpiry !== undefined) setValidateExpiry(settings.validateExpiry);
  if (settings.validateFreeze !== undefined) setValidateFreeze(settings.validateFreeze);
- if (settings.gracePeriod !== undefined) setGracePeriod(settings.gracePeriod);
+ if (settings.allowGracePeriod !== undefined) setAllowGracePeriod(settings.allowGracePeriod);
+ if (settings.gracePeriodDays !== undefined) setGracePeriodDays(settings.gracePeriodDays);
  if (settings.autoCloseSessions !== undefined) setAutoCloseSessions(settings.autoCloseSessions);
 
  // General Settings
@@ -330,7 +332,8 @@ function AttendanceSettingsContent() {
  maxCapacity,
  validateExpiry,
  validateFreeze,
- gracePeriod,
+ allowGracePeriod,
+ gracePeriodDays,
  autoCloseSessions,
  // General Settings
  trackingEnabled,
@@ -372,6 +375,9 @@ function AttendanceSettingsContent() {
  // Capacity Management
  warningThreshold,
  criticalThreshold,
+ // Critical threshold IS the actual block point checkIn() enforces
+ // (validateCheckIn reads settings.maxOccupancyPercent, not criticalThreshold).
+ maxOccupancyPercent: criticalThreshold,
  emergencyCapacity,
  // Notifications & Channels
  notifyCheckIn,
@@ -793,6 +799,34 @@ function AttendanceSettingsContent() {
  />
  </div>
  ))}
+ </div>
+
+ <div className="border-t border-neutral-100/60 pt-4 space-y-3">
+ <span className="text-[10px] font-black text-neutral-600 uppercase tracking-wider block">Grace Period After Expiry</span>
+ <div className="flex items-center justify-between p-3.5 bg-background border border-neutral-100 rounded-xl">
+ <div>
+ <span className="text-xs text-neutral-700 font-semibold block">Allow Grace Period</span>
+ <span className="text-[10px] text-neutral-500">Treat check-ins as a Warning (not a Denial) for a few days after a membership expires.</span>
+ </div>
+ <input
+ type="checkbox"
+ checked={allowGracePeriod}
+ onChange={(e) => setAllowGracePeriod(e.target.checked)}
+ className="w-4 h-4 rounded text-primary accent-primary bg-neutral-50 border-neutral-200"
+ />
+ </div>
+ {allowGracePeriod && (
+ <div className="space-y-1 max-w-xs">
+ <label className="text-[10px] text-neutral-600">Grace Period Length (days)</label>
+ <input
+ type="number"
+ min={1}
+ value={gracePeriodDays}
+ onChange={(e) => setGracePeriodDays(parseInt(e.target.value) || 1)}
+ className="w-full bg-background border border-neutral-100 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none"
+ />
+ </div>
+ )}
  </div>
 
  <div className="border-t border-neutral-100/60 pt-4 space-y-3">

@@ -11,8 +11,32 @@ export class DeviceSyncService {
   async syncMembers(device: Device, payload: any) {
     this.logger.log(`Syncing members for device ${device.id}`);
     
-    // In a real implementation, this would trigger a job to push members to the device
-    // Or return a list of members that the device should pull down
+    // Auto-map all org members to this device for MVP/Simulator purposes
+    const allMembers = await this.prisma.member.findMany({
+      where: { organizationId: device.organizationId }
+    });
+
+    for (let i = 0; i < allMembers.length; i++) {
+      const member = allMembers[i];
+      const existing = await this.prisma.deviceUserMapping.findUnique({
+        where: {
+          deviceId_memberId: {
+            deviceId: device.id,
+            memberId: member.id
+          }
+        }
+      });
+      
+      if (!existing) {
+        await this.prisma.deviceUserMapping.create({
+          data: {
+            deviceId: device.id,
+            memberId: member.id,
+            externalUserId: String(1000 + i), // Mock external ID
+          }
+        });
+      }
+    }
     
     const membersToSync = await this.prisma.deviceUserMapping.findMany({
       where: { deviceId: device.id },

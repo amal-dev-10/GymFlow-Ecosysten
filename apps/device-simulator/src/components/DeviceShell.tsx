@@ -2,13 +2,37 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cable, Gauge, ScanLine, ScrollText } from "lucide-react";
+import {
+  Gauge,
+  Settings2,
+  Activity,
+  Users,
+  Fingerprint,
+  CreditCard,
+  QrCode,
+  DoorOpen,
+  Bell,
+  ScrollText,
+  HardDrive,
+  Wrench,
+  Settings,
+} from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/connection", label: "Connection", icon: Cable },
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/simulation", label: "Simulation", icon: ScanLine },
+  { href: "/configuration", label: "Device Configuration", icon: Settings2 },
+  { href: "/connection", label: "Connection", icon: Activity },
+  { href: "/heartbeat", label: "Heartbeat", icon: Activity },
+  { href: "/member-sync", label: "Member Sync", icon: Users },
+  { href: "/fingerprint", label: "Fingerprint", icon: Fingerprint },
+  { href: "/rfid", label: "RFID", icon: CreditCard },
+  { href: "/qr", label: "QR", icon: QrCode },
+  { href: "/door-control", label: "Door Control", icon: DoorOpen },
+  { href: "/events", label: "Events", icon: Bell },
   { href: "/logs", label: "Logs", icon: ScrollText },
+  { href: "/diagnostics", label: "Diagnostics", icon: HardDrive },
+  { href: "/developer-tools", label: "Developer Tools", icon: Wrench },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function DeviceShell({ children }: { children: React.ReactNode }) {

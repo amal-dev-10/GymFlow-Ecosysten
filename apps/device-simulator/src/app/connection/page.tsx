@@ -1,76 +1,103 @@
 "use client";
 
+import { useConnectionStore } from "@/store/useConnectionStore";
+import { deviceApi } from "@/lib/deviceApi";
 import { useState } from "react";
-import { OperatorAuthCard } from "@/components/connection/OperatorAuthCard";
-import { DeviceConfigForm } from "@/components/connection/DeviceConfigForm";
-import { ConnectionStatusPanel } from "@/components/connection/ConnectionStatusPanel";
-import { useDeviceConnection } from "@/hooks/useDeviceConnection";
-import { useOperatorSession } from "@/hooks/useOperatorSession";
-import { useConfigStore } from "@/store/useConfigStore";
+import { Activity, Plug, Unplug, Wifi, RefreshCw } from "lucide-react";
 
 export default function ConnectionPage() {
-  const { isAuthenticated } = useOperatorSession();
-  const { device, status, register, connect, disconnect } = useDeviceConnection();
-  const registeredDeviceId = useConfigStore((s) => s.registeredDeviceId);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const { status, setStatus, setErrorMessage, errorMessage } = useConnectionStore();
+  const [loading, setLoading] = useState<string | null>(null);
 
-  const isOnline = status === "ONLINE" || status === "RECONNECTING";
-
-  const run = async (action: string, fn: () => Promise<unknown>) => {
-    setBusy(action);
-    setActionError(null);
+  const testConnection = async () => {
+    setLoading("test");
+    setErrorMessage(null);
     try {
-      await fn();
+      await deviceApi.testConnection();
+      setStatus("ONLINE");
+      alert("Connection test successful!");
     } catch (err: any) {
-      setActionError(err?.message || "Action failed");
+      setStatus("ERROR");
+      setErrorMessage(err.message);
     } finally {
-      setBusy(null);
+      setLoading(null);
     }
   };
 
+  const connect = () => {
+    setStatus("ONLINE");
+    setErrorMessage(null);
+  };
+
+  const disconnect = () => {
+    setStatus("DISCONNECTED");
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold text-neutral-100">Connection</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Register and connect this simulator to the backend, exactly as a physical device would.
-        </p>
+    <div className="max-w-2xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight text-neutral-100">Connection Manager</h1>
+        <p className="text-sm text-neutral-400">Manage simulator backend connectivity.</p>
       </div>
 
-      <OperatorAuthCard />
-
-      <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
-        <h2 className="mb-3 text-sm font-medium text-neutral-200">Device Configuration</h2>
-        <DeviceConfigForm disabled={!isAuthenticated || isOnline} />
-
-        <div className="mt-4 flex gap-2">
-          <button
-            disabled={!isAuthenticated || isOnline || busy !== null}
-            onClick={() => run("register", register)}
-            className="rounded-md bg-neutral-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {busy === "register" ? "Registering…" : "Register"}
-          </button>
-          <button
-            disabled={!isAuthenticated || isOnline || !registeredDeviceId || busy !== null}
-            onClick={() => run("connect", connect)}
-            className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {busy === "connect" ? "Connecting…" : "Connect"}
-          </button>
-          <button
-            disabled={!isOnline || busy !== null}
-            onClick={() => run("disconnect", disconnect)}
-            className="rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
-          >
-            Disconnect
-          </button>
+      <div className="mb-6 flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+        <div>
+          <h2 className="text-sm font-medium text-neutral-300">Current Status</h2>
+          <div className="mt-1 flex items-center gap-2">
+            <div
+              className={`h-2.5 w-2.5 rounded-full ${
+                status === "ONLINE"
+                  ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+                  : status === "ERROR"
+                  ? "bg-red-500"
+                  : "bg-neutral-500"
+              }`}
+            />
+            <span className="font-mono text-lg font-bold uppercase tracking-wider text-neutral-100">
+              {status}
+            </span>
+          </div>
+          {errorMessage && <p className="mt-2 text-xs text-red-400">{errorMessage}</p>}
         </div>
-        {actionError && <p className="mt-2 text-xs text-red-400">{actionError}</p>}
       </div>
 
-      <ConnectionStatusPanel connectionStatus={status} device={device} />
+      <div className="grid grid-cols-2 gap-4">
+        <button
+          onClick={testConnection}
+          disabled={loading !== null}
+          className="flex flex-col items-center justify-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-6 text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
+        >
+          <Activity size={24} className="text-blue-500" />
+          <span className="text-sm font-medium">Test Connection</span>
+        </button>
+
+        <button
+          onClick={testConnection} // ping acts similarly to test
+          disabled={loading !== null}
+          className="flex flex-col items-center justify-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-6 text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
+        >
+          <Wifi size={24} className="text-purple-500" />
+          <span className="text-sm font-medium">Ping Backend</span>
+        </button>
+
+        <button
+          onClick={connect}
+          disabled={status === "ONLINE"}
+          className="flex flex-col items-center justify-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-6 text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
+        >
+          <Plug size={24} className="text-emerald-500" />
+          <span className="text-sm font-medium">Connect</span>
+        </button>
+
+        <button
+          onClick={disconnect}
+          disabled={status === "DISCONNECTED"}
+          className="flex flex-col items-center justify-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-6 text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
+        >
+          <Unplug size={24} className="text-neutral-500" />
+          <span className="text-sm font-medium">Disconnect</span>
+        </button>
+      </div>
     </div>
   );
 }

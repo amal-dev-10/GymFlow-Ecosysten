@@ -15,6 +15,12 @@ export class DevicesService {
     private syncService: DeviceSyncService,
   ) {}
 
+  private getWebhookUrl(): string {
+    const isDev = process.env.NODE_ENV !== 'production';
+    const apiUrl = process.env.API_URL || (isDev ? `http://localhost:${process.env.PORT || 5000}` : 'https://api.gymflow.com');
+    return `${apiUrl}/v1/devices`;
+  }
+
   /**
    * List devices for a gym (or org-wide if gymId omitted).
    */
@@ -82,7 +88,7 @@ export class DevicesService {
 
     // Generate a secure 32-character device key
     const deviceKey = randomBytes(16).toString('hex');
-    const webhookUrl = `https://api.gymflow.com/v1/devices/events`; // In real life, use env
+    const webhookUrl = this.getWebhookUrl();
 
     const device = await this.prisma.device.create({
       data: {
@@ -196,6 +202,10 @@ export class DevicesService {
       include: { gym: true },
     });
     if (!device) throw new NotFoundException('Device not found');
+    
+    // Override webhookUrl for current environment
+    device.webhookUrl = this.getWebhookUrl();
+    
     return device;
   }
 

@@ -15,9 +15,17 @@ export interface LogEntry {
     | "ATTENDANCE_DENIED"
     | "DOOR_OPENED"
     | "DOOR_CLOSED"
-    | "ERROR";
-  message: string;
+    | "ERROR"
+    | "REQUEST"
+    | "RESPONSE";
+  message?: string;
   timestamp: string;
+  endpoint?: string;
+  method?: string;
+  payload?: any;
+  response?: any;
+  status?: number;
+  duration?: number;
 }
 
 interface LogsState {

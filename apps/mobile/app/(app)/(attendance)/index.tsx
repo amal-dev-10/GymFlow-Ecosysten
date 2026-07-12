@@ -223,7 +223,13 @@ export default function AttendanceDashboardScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: selectedLog.durationText ? spacing.sm : 0 }}>
                 <LogOut size={16} color={colors.textSecondary} />
                 <Text style={{ color: colors.text, fontSize: 14 }}>
-                  Check-out Time: <Text style={{ fontWeight: '600' }}>{selectedLog.checkOutTime || 'Currently inside'}</Text>
+                  Check-out Time: <Text style={{ fontWeight: '600' }}>
+                    {selectedLog.checkOutTime
+                      ? selectedLog.checkOutTime
+                      : String(selectedLog.status).toLowerCase() === 'denied'
+                        ? 'N/A — entry denied'
+                        : 'Currently inside'}
+                  </Text>
                 </Text>
               </View>
               {selectedLog.durationText && (
@@ -235,6 +241,31 @@ export default function AttendanceDashboardScreen() {
                 </View>
               )}
             </View>
+
+            {/* Reason — shown whenever present: the denial reason for a
+                blocked attempt, or the warning reason for a flagged grant
+                (e.g. grace period, low visit balance). */}
+            {!!selectedLog.reason && (
+              <View
+                style={[
+                  styles.reasonBox,
+                  {
+                    borderRadius: radius.md,
+                    padding: spacing.md,
+                    marginBottom: spacing.xl,
+                    backgroundColor: String(selectedLog.status).toLowerCase() === 'denied' ? colors.error + '12' : colors.warning + '12',
+                  },
+                ]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <AlertCircle size={16} color={String(selectedLog.status).toLowerCase() === 'denied' ? colors.error : colors.warning} />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: String(selectedLog.status).toLowerCase() === 'denied' ? colors.error : colors.warning }}>
+                    {String(selectedLog.status).toLowerCase() === 'denied' ? 'Reason for Denial' : 'Flagged With Warning'}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 14, color: colors.text, marginTop: 4 }}>{selectedLog.reason}</Text>
+              </View>
+            )}
 
             {/* Actions */}
             <View style={{ gap: spacing.sm }}>
@@ -276,5 +307,6 @@ const styles = StyleSheet.create({
   },
   detailsBox: {
     borderWidth: 1,
-  }
+  },
+  reasonBox: {},
 });

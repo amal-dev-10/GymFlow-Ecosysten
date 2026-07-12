@@ -729,7 +729,7 @@ function AttendanceTerminalContent() {
  <span className="text-[8.5px] text-neutral-500">{log.checkInTime}</span>
  </div>
  <p className="text-[10px] text-neutral-600">
- {log.status === 'Granted' ? 'Entered Branch' : `Denied: ${log.reason}`}
+ {log.status === 'Granted' ? 'Entered Branch' : `Denied: ${log.reason || 'No reason provided'}`}
  </p>
  <div className="flex gap-2 items-center text-[9px] text-neutral-500">
  <span>Method: {log.method}</span>

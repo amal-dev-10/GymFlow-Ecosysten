@@ -37,6 +37,8 @@ function getEventMeta(type: string, colors: any) {
       return { Icon: LogIn, color: colors.info };
     case 'checked_out':
       return { Icon: LogOut, color: colors.warning };
+    case 'checkin_denied':
+      return { Icon: AlertCircle, color: colors.error };
     case 'workout_assigned':
       return { Icon: Dumbbell, color: colors.primary };
     case 'diet_assigned':

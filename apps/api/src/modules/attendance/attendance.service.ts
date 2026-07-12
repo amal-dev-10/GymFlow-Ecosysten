@@ -151,6 +151,16 @@ export class AttendanceService {
           deviceUsed: deviceUsed || 'Front Gate',
         },
       });
+      // Denials on the member-lookup path never reached emitValidation before,
+      // so this attempt was invisible to every other page/device in the
+      // workspace - only the terminal that triggered it (via its own REST
+      // response) ever knew it happened.
+      this.realtimeGateway.emitValidation(gymId, {
+        memberId,
+        memberName: attendance.memberName,
+        status: 'Denied',
+        reason: 'Member profile not found',
+      });
 
       const unknownActorName = await this.getActorName(actorUserId);
       await this.auditLogsService.logEvent({
@@ -197,6 +207,7 @@ export class AttendanceService {
     }
     this.realtimeGateway.emitValidation(gymId, {
       memberId,
+      memberName: attendance.memberName,
       status: validationResult.status,
       reason: validationResult.reason,
       layers: validationResult.layers,
@@ -1195,6 +1206,10 @@ export class AttendanceService {
       throw new NotFoundException('Branch location not found');
     }
 
+    if ((gym.settings as any)?.allowManualOverride === false) {
+      throw new BadRequestException('Manual override is disabled in Attendance Settings for this branch.');
+    }
+
     const member = await this.prisma.member.findFirst({
       where: { id: memberId, organizationId: orgId },
     });
@@ -1288,6 +1303,10 @@ export class AttendanceService {
     const maxDailyCheckIns = Number(settings.maxDailyCheckIns) || 0;
     const duplicatePrevention = settings.duplicatePrevention !== false;
     const minGap = Number(settings.minGap) || 30;
+    const validateStatus = settings.validateStatus !== false;
+    const validateSuspension = settings.validateSuspension !== false;
+    const validateBranchAccess = settings.validateBranchAccess !== false;
+    const validateVisitLimits = settings.validateVisitLimits !== false;
 
     const layers: any[] = [];
     let finalDecision: 'Granted' | 'Denied' | 'Warning' = 'Granted';
@@ -1297,7 +1316,7 @@ export class AttendanceService {
     const isSuspended = (member as any).status === 'Suspended';
     const isDeleted = member.deletedAt !== null;
     
-    if (isDeleted) {
+    if (isDeleted && validateStatus) {
       layers.push({
         name: 'Member Validation',
         status: 'Failed',
@@ -1305,7 +1324,7 @@ export class AttendanceService {
       });
       finalDecision = 'Denied';
       finalReason = finalReason || 'Member Deleted';
-    } else if (isSuspended) {
+    } else if (isSuspended && validateSuspension) {
       layers.push({
         name: 'Member Validation',
         status: 'Failed',
@@ -1317,7 +1336,7 @@ export class AttendanceService {
       layers.push({
         name: 'Member Validation',
         status: 'Passed',
-        message: 'Member exists and is active.',
+        message: (isDeleted || isSuspended) ? 'Member status checks disabled in Attendance Settings.' : 'Member exists and is active.',
       });
     }
 
@@ -1425,7 +1444,13 @@ export class AttendanceService {
     }
 
     // Layer 3: Branch Access Validation
-    if (finalDecision !== 'Denied' && activeSub) {
+    if (finalDecision !== 'Denied' && activeSub && !validateBranchAccess) {
+      layers.push({
+        name: 'Branch Access Validation',
+        status: 'Skipped',
+        message: 'Branch access validation disabled in Attendance Settings.',
+      });
+    } else if (finalDecision !== 'Denied' && activeSub) {
       const plan = activeSub.membershipPlan;
       const allowedBranchList = plan.branchAccess === 'all'
         ? 'all'
@@ -1556,51 +1581,59 @@ export class AttendanceService {
           }
         }
 
-        const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
-
-        const monthlyVisits = await this.prisma.attendance.count({
-          where: {
-            organizationId: orgId,
-            memberId,
-            status: 'Granted',
-            checkInTime: { gte: monthStart },
-          },
-        });
-
-        const plan = activeSub.membershipPlan;
-        let limit = 9999;
-        if (plan.name.toLowerCase().includes('10 visits') || (plan.benefits as any)?.visitLimit === 10) {
-          limit = 10;
-        } else if (plan.name.toLowerCase().includes('limited') || plan.name.toLowerCase().includes('lite')) {
-          limit = 12;
-        } else if (plan.name.toLowerCase().includes('30 visits') || (plan.benefits as any)?.visitLimit === 30) {
-          limit = 30;
-        }
-
-        if (monthlyVisits >= limit) {
-          layers.push({
-            name: 'Attendance Rules Validation',
-            status: 'Failed',
-            message: `Monthly visit limit reached: ${monthlyVisits}/${limit} visits used.`,
-            data: { monthlyVisits, limit },
-          });
-          finalDecision = 'Denied';
-          finalReason = finalReason || 'Visit Limit Reached';
-        } else if (limit < 9999 && (limit - monthlyVisits) <= 2) {
-          layers.push({
-            name: 'Attendance Rules Validation',
-            status: 'Warning',
-            message: `Low visit balance: ${limit - monthlyVisits} visits remaining this month.`,
-            data: { monthlyVisits, limit },
-          });
-          finalDecision = 'Warning';
-          finalReason = finalReason || 'Low Visit Balance';
-        } else {
+        if (!validateVisitLimits) {
           layers.push({
             name: 'Attendance Rules Validation',
             status: 'Passed',
-            message: `Attendance rules satisfied. Monthly visits: ${monthlyVisits}/${limit === 9999 ? 'Unlimited' : limit}.`,
+            message: 'Plan visit limit validation disabled in Attendance Settings.',
           });
+        } else {
+          const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+
+          const monthlyVisits = await this.prisma.attendance.count({
+            where: {
+              organizationId: orgId,
+              memberId,
+              status: 'Granted',
+              checkInTime: { gte: monthStart },
+            },
+          });
+
+          const plan = activeSub.membershipPlan;
+          let limit = 9999;
+          if (plan.name.toLowerCase().includes('10 visits') || (plan.benefits as any)?.visitLimit === 10) {
+            limit = 10;
+          } else if (plan.name.toLowerCase().includes('limited') || plan.name.toLowerCase().includes('lite')) {
+            limit = 12;
+          } else if (plan.name.toLowerCase().includes('30 visits') || (plan.benefits as any)?.visitLimit === 30) {
+            limit = 30;
+          }
+
+          if (monthlyVisits >= limit) {
+            layers.push({
+              name: 'Attendance Rules Validation',
+              status: 'Failed',
+              message: `Monthly visit limit reached: ${monthlyVisits}/${limit} visits used.`,
+              data: { monthlyVisits, limit },
+            });
+            finalDecision = 'Denied';
+            finalReason = finalReason || 'Visit Limit Reached';
+          } else if (limit < 9999 && (limit - monthlyVisits) <= 2) {
+            layers.push({
+              name: 'Attendance Rules Validation',
+              status: 'Warning',
+              message: `Low visit balance: ${limit - monthlyVisits} visits remaining this month.`,
+              data: { monthlyVisits, limit },
+            });
+            finalDecision = 'Warning';
+            finalReason = finalReason || 'Low Visit Balance';
+          } else {
+            layers.push({
+              name: 'Attendance Rules Validation',
+              status: 'Passed',
+              message: `Attendance rules satisfied. Monthly visits: ${monthlyVisits}/${limit === 9999 ? 'Unlimited' : limit}.`,
+            });
+          }
         }
       }
     } else {
