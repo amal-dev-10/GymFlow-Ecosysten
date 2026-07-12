@@ -60,8 +60,43 @@ async function main() {
   console.log(`Seeded ${DEPARTMENTS.length} departments.`);
 
   // Keep the existing SUPER_ADMIN (used for login in this environment) but
-  // give it a department + MFA so it renders richly in the table too.
-  const existingSuperAdmin = await prisma.platformAdminUser.findFirst({ where: { role: 'SUPER_ADMIN' }, include: { user: true } });
+  // give it a department + MFA so it renders richly in the table too. If it
+  // doesn't exist, create it.
+  let existingSuperAdmin = await prisma.platformAdminUser.findFirst({ where: { role: 'SUPER_ADMIN' }, include: { user: true } });
+  if (!existingSuperAdmin) {
+    let user = await prisma.user.findUnique({ where: { email: 'devamal7902@gmail.com' } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          fullName: 'Amal Dev Owner',
+          email: 'devamal7902@gmail.com',
+          phoneNumber: '7902992446',
+          isVerified: true
+        }
+      });
+    } else {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { phoneNumber: '7902992446', isVerified: true }
+      });
+    }
+    existingSuperAdmin = await prisma.platformAdminUser.create({
+      data: {
+        userId: user.id,
+        role: 'SUPER_ADMIN',
+        department: 'Executive',
+        status: 'ACTIVE',
+        isActive: true,
+        mfaEnabled: true,
+        mfaEnabledAt: d(-200),
+        mfaRecoveryCodesRemaining: 8,
+        createdAt: d(-200),
+      },
+      include: { user: true }
+    });
+    console.log('Created fallback SUPER_ADMIN user.');
+  }
+
   if (existingSuperAdmin && !existingSuperAdmin.department) {
     await prisma.platformAdminUser.update({
       where: { id: existingSuperAdmin.id },
