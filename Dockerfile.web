@@ -27,6 +27,7 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_RAZORPAY_KEY_ID=${NEXT_PUBLIC_RAZORPAY_KEY_ID}
 
 # Build only the web workspace
+RUN find . -maxdepth 3 -not -path '*/node_modules*' -not -path '*/.*'
 RUN npx turbo run build --filter=web
 
 # -----------------------------
