@@ -121,7 +121,8 @@ export function useAttendanceSocket(gymId: string, callbacks: AttendanceSocketCa
       if (cancelled) return;
 
       const token = localStorage.getItem('token');
-      socket = io(`http://localhost:5000/attendance`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      socket = io(`${apiUrl}/attendance`, {
         auth: { token },
       });
 
