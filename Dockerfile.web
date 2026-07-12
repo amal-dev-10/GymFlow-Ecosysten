@@ -1,37 +1,48 @@
 # syntax=docker/dockerfile:1
+
 # =============================================================================
-# apps/web — tenant client (Next.js) — served at gymflow.io
+# GymFlow Web (Next.js)
 # =============================================================================
 
-# ---- Builder -----------------------------------------------------------------
+# -----------------------------
+# Builder
+# -----------------------------
 FROM node:20-alpine AS builder
+
 WORKDIR /app
-COPY . .
+
+# Install dependencies
+COPY package*.json ./
+COPY apps ./apps
+COPY packages ./packages
+
 RUN npm ci
 
-# NEXT_PUBLIC_* vars are inlined at build time, so they must be present here.
+# Build-time environment variables
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_RAZORPAY_KEY_ID
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_RAZORPAY_KEY_ID=$NEXT_PUBLIC_RAZORPAY_KEY_ID
 
-RUN cd apps/web && npm run build
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_RAZORPAY_KEY_ID=${NEXT_PUBLIC_RAZORPAY_KEY_ID}
 
-RUN ls -la /app/apps/web/.next
-RUN ls -la /app/apps/web/.next/static
-RUN ls -la /app/apps/web/.next/standalone
+# Build only the web workspace
+RUN npm run build --workspace=web
 
-# ---- Runner ------------------------------------------------------------------
+# -----------------------------
+# Runner
+# -----------------------------
 FROM node:20-alpine AS runner
+
 WORKDIR /app
+
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Next.js standalone output (traced from the monorepo root).
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
 
 EXPOSE 3000
+
 CMD ["node", "apps/web/server.js"]
