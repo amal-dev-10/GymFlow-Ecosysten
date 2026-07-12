@@ -26,7 +26,7 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_RAZORPAY_KEY_ID=${NEXT_PUBLIC_RAZORPAY_KEY_ID}
 
 # Build only the web workspace
-RUN npm run build --workspace=web
+RUN cd apps/web && npm run build
 
 # -----------------------------
 # Runner
