@@ -22,7 +22,7 @@ RUN npm ci
 RUN npm run generate --workspace @gym/database
 
 # Compile the NestJS app (tsc -> apps/api/dist).
-RUN npm run build --workspace api
+RUN cd apps/api && npm run build
 
 # The @gym/database workspace package ships TypeScript source (main: index.ts),
 # which `node` cannot require at runtime. Compile it to CommonJS and repoint

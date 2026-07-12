@@ -15,7 +15,7 @@ ARG NEXT_PUBLIC_RAZORPAY_KEY_ID
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_RAZORPAY_KEY_ID=$NEXT_PUBLIC_RAZORPAY_KEY_ID
 
-RUN npm run build --workspace web
+RUN cd apps/web && npm run build
 
 # ---- Runner ------------------------------------------------------------------
 FROM node:20-alpine AS runner
