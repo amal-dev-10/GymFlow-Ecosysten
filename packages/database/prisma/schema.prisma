@@ -278,6 +278,7 @@ model Member {
   memberDocuments    MemberDocument[]
   memberMemberships  MemberMembership[]
   attendances        Attendance[]
+  deviceMappings     DeviceUserMapping[]
 }
 
 /// A phone number is the shared "global account" key across all organizations.
@@ -1332,21 +1333,75 @@ enum DeviceStatus {
   ERROR
 }
 
+enum DeviceVendor {
+  ZKTECO
+  ESSL
+  SUPREMA
+  HIKVISION
+  CUSTOM
+}
+
+enum DeviceEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
 model Device {
   id             String       @id @default(uuid())
   organizationId String
   gymId          String
   name           String
+  description    String?
+  vendor         DeviceVendor @default(CUSTOM)
+  model          String?
+  serialNumber   String?
+  deviceKey      String?      @unique
+  ipAddress      String?
+  webhookUrl     String?
+  configuration  Json?
+  health         Json?
   type           DeviceType
   status         DeviceStatus @default(OFFLINE)
   lastHeartbeat  DateTime?
+  lastSeen       DateTime?
   lastSync       DateTime?
   version        String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  gym          Gym          @relation(fields: [gymId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  gym            Gym          @relation(fields: [gymId], references: [id])
+  events         DeviceEvent[]
+  userMappings   DeviceUserMapping[]
+}
+
+model DeviceEvent {
+  id           String            @id @default(uuid())
+  deviceId     String
+  type         String            // VERIFY_SUCCESS, CHECK_IN, DOOR_OPEN, etc.
+  rawPayload   Json
+  status       DeviceEventStatus @default(PENDING)
+  processedAt  DateTime?
+  createdAt    DateTime          @default(now())
+
+  device       Device            @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model DeviceUserMapping {
+  id             String   @id @default(uuid())
+  deviceId       String
+  memberId       String
+  externalUserId String   // ID on the physical device
+  fingerprintId  String?
+  cardId         String?
+  faceId         String?
+
+  device         Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  member         Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, memberId])
+  @@unique([deviceId, externalUserId])
 }
 
 model Exercise {

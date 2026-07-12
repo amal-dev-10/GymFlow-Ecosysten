@@ -59,6 +59,7 @@ export default function MoreScreen() {
         { label: 'Organization Settings', icon: Building2, color: '#8B5CF6', route: '/(app)/(more)/organization', visible: can('manage-staff') },
         // { label: 'Payments & Billing', icon: CreditCard, color: '#3B82F6', route: '/(app)/(billing)', visible: can('record-payment') },
         // { label: 'Attendance History', icon: ScanLine, color: '#10B981', route: '/(app)/(attendance)', visible: can('mark-attendance') },
+        { label: 'Exercise Library', icon: Dumbbell, color: '#EC4899', route: '/(app)/(training)', visible: can('assign-workout') },
         { label: 'Classes & Sessions', icon: Dumbbell, color: '#EC4899', route: null, visible: true },
         { label: 'Inventory & POS', icon: Package, color: '#6366F1', route: null, visible: can('manage-inventory') },
       ]

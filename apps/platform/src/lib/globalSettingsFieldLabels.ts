@@ -70,6 +70,10 @@ export const FIELD_LABELS: Record<string, Record<string, string>> = {
     playStoreUrl: 'Play Store URL',
     appStoreUrl: 'App Store URL',
     releaseNotes: 'Release Notes',
+    landingEnabled: 'Landing: Show Section',
+    landingHeadline: 'Landing: Headline',
+    landingSubtitle: 'Landing: Subtitle',
+    landingFeatures: 'Landing: Feature Highlights',
   },
   system: {
     cacheLastClearedAt: 'Cache',

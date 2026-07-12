@@ -858,3 +858,59 @@ export const announcementsApi = {
   markRead: (id: string) => apiRequest<{ ok: boolean }>(`/v1/announcements/${encodeURIComponent(id)}/read`, { method: 'POST' }),
   markAllRead: () => apiRequest<{ updated: number }>('/v1/announcements/read-all', { method: 'POST' }),
 };
+
+// ---------------------------------------------------------------------------
+// Exercises — the real Training Studio library (/v1/exercises). Powers the
+// mobile exercise browser and the member workout builder's exercise picker.
+// ---------------------------------------------------------------------------
+export interface ExerciseDto {
+  id: string;
+  name: string;
+  description?: string | null;
+  primaryMuscle: string;
+  secondaryMuscles?: string[];
+  equipment: string;
+  difficulty: string;
+  category: string;
+  movementPattern?: string | null;
+  source: string;
+  gifUrl?: string | null;
+  videoUrl?: string | null;
+  instructions?: string[];
+  safetyTips?: string[];
+  trainerNotes?: string | null;
+  caloriesBurned?: number | null;
+  isFavorite?: boolean;
+}
+
+export interface ExerciseListResponse {
+  items: ExerciseDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const exercisesApi = {
+  list: (params: { search?: string; category?: string; page?: number; limit?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.search) qs.set('search', params.search);
+    if (params.category && params.category !== 'all') qs.set('category', params.category);
+    qs.set('page', String(params.page || 1));
+    qs.set('limit', String(params.limit || 20));
+    return apiRequest<ExerciseListResponse>(`/v1/exercises?${qs.toString()}`);
+  },
+  get: (id: string) => apiRequest<ExerciseDto>(`/v1/exercises/${encodeURIComponent(id)}`),
+};
+
+// ---------------------------------------------------------------------------
+// Devices (ACS-020)
+// ---------------------------------------------------------------------------
+export const devicesApi = {
+  list: () => apiRequest<any[]>('/v1/devices'),
+  create: (payload: any) => apiRequest<any>('/v1/devices', { method: 'POST', body: payload }),
+  get: (id: string) => apiRequest<any>(`/v1/devices/${id}`),
+  testConnection: (id: string) => apiRequest<any>(`/v1/devices/${id}/test-connection`, { method: 'POST' }),
+  syncNow: (id: string) => apiRequest<any>(`/v1/devices/${id}/sync-now`, { method: 'POST' }),
+  getEvents: (id: string) => apiRequest<any[]>(`/v1/devices/${id}/events`),
+};

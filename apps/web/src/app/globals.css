@@ -235,3 +235,37 @@ h1, h2, h3, h4, h5, h6 {
 .reveal.in-view {
   animation: reveal-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@media print {
+  /* Hide navigation, sidebars, headers, right utility panels, and other UI elements */
+  aside,
+  header,
+  nav,
+  button,
+  .no-print,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset main wrapper to take full width and height without scrolls */
+  body, html, main {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Clear any fixed or absolute height restraints on main layouts */
+  .min-h-screen {
+    min-height: 0 !important;
+  }
+
+  div {
+    overflow: visible !important;
+  }
+}
+

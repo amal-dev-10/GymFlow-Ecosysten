@@ -83,70 +83,72 @@ export const lightColors = {
   primary: palette.indigo[600],
   primaryLight: palette.indigo[50],
   primaryDark: palette.indigo[800],
-  
+
   background: palette.slate[50],
   surface: palette.common.white,
   surfaceElevated: palette.slate[100],
   surfaceOverlay: palette.common.white,
-  
+
   border: palette.slate[200],
   borderStrong: palette.slate[300],
-  
+
   text: palette.slate[900],
   textSecondary: palette.slate[500],
   textMuted: palette.slate[400],
   textOnPrimary: palette.common.white,
-  
+
   success: palette.emerald[600],
   successLight: palette.emerald[50],
   successText: palette.emerald[700],
-  
+
   warning: palette.amber[500],
   warningLight: palette.amber[50],
   warningText: palette.amber[700],
-  
+
   error: palette.rose[600],
   errorLight: palette.rose[50],
   errorText: palette.rose[700],
-  
+
   info: palette.blue[600],
   infoLight: palette.blue[50],
   infoText: palette.blue[700],
 
   ripple: 'rgba(0, 0, 0, 0.05)',
   overlay: 'rgba(15, 23, 42, 0.4)',
+
+  card: palette.slate[100]
 };
 
 export const darkColors = {
   primary: palette.indigo[400],
   primaryLight: palette.indigo[950],
   primaryDark: palette.indigo[300],
-  
+
   background: palette.slate[950],
   surface: palette.slate[900],
   surfaceElevated: palette.slate[800],
   surfaceOverlay: palette.slate[800],
-  
+
   border: palette.slate[800],
   borderStrong: palette.slate[700],
-  
+
   text: palette.slate[50],
   textSecondary: palette.slate[400],
   textMuted: palette.slate[500],
   textOnPrimary: palette.slate[950],
-  
+
   success: palette.emerald[400],
   successLight: 'rgba(16, 185, 129, 0.1)',
   successText: palette.emerald[300],
-  
+
   warning: palette.amber[400],
   warningLight: 'rgba(245, 158, 11, 0.1)',
   warningText: palette.amber[300],
-  
+
   error: palette.rose[400],
   errorLight: 'rgba(244, 63, 94, 0.1)',
   errorText: palette.rose[300],
-  
+
   info: palette.blue[400],
   infoLight: 'rgba(59, 130, 246, 0.1)',
   infoText: palette.blue[300],

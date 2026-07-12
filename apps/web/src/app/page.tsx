@@ -26,10 +26,22 @@ import {
   Grid,
   Mail,
   Phone,
+  Play,
+  Smartphone,
 } from 'lucide-react';
 import { plansApi } from '../lib/api';
+import { API_BASE_URL } from '../lib/api/client';
 import { mapPublicPlansToPricingTiers, type PricingTier, resolveAssetUrl } from '../lib/api/mappers';
 import { useBrand } from '../hooks/useBrand';
+
+interface MobileAppConfig {
+  enabled: boolean;
+  headline: string;
+  subtitle: string;
+  features: string[];
+  playStoreUrl: string;
+  appStoreUrl: string;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Scroll-reveal wrapper — fades + slides sections up as they enter the
@@ -143,8 +155,19 @@ export default function Home() {
   const [scrolled, setScrolled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
+  const [appConfig, setAppConfig] = useState<MobileAppConfig | null>(null);
 
   const { brand, logoUrl: brandLogoUrl, faviconUrl, initials: brandInitials } = useBrand();
+
+  // Platform-admin configurable "Get the app" content (public endpoint).
+  useEffect(() => {
+    let active = true;
+    fetch(`${API_BASE_URL}/v1/platform/settings-public/mobile-app`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (active && data) setAppConfig(data); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -997,6 +1020,82 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* GET THE APP — platform-admin configurable */}
+      {appConfig?.enabled && (appConfig.playStoreUrl || appConfig.appStoreUrl) && (
+        <section id="mobile-app" className="py-24 px-6 z-10 relative">
+          <div className="max-w-7xl mx-auto">
+            <Reveal className="grid md:grid-cols-2 gap-12 items-center">
+              {/* Content */}
+              <div className="flex flex-col gap-6">
+                <div className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
+                  <Smartphone className="w-3.5 h-3.5" /> Mobile App
+                </div>
+                <h2 className="text-3xl md:text-4xl font-black tracking-tight text-neutral-900">
+                  {appConfig.headline || 'Run your gym from your pocket'}
+                </h2>
+                {appConfig.subtitle && (
+                  <p className="text-neutral-600 text-base leading-relaxed">{appConfig.subtitle}</p>
+                )}
+                {appConfig.features.length > 0 && (
+                  <ul className="flex flex-col gap-3">
+                    {appConfig.features.map((f, i) => (
+                      <li key={i} className="flex items-start gap-3 text-neutral-700 text-sm">
+                        <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex flex-wrap gap-3 mt-2">
+                  {appConfig.playStoreUrl && (
+                    <a
+                      href={appConfig.playStoreUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-neutral-900 text-white hover:bg-neutral-800 transition shadow-lg"
+                    >
+                      <Play className="w-6 h-6" fill="currentColor" />
+                      <span className="flex flex-col leading-tight text-left">
+                        <span className="text-[10px] uppercase tracking-wide text-neutral-300">Get it on</span>
+                        <span className="text-sm font-bold">Google Play</span>
+                      </span>
+                    </a>
+                  )}
+                  {appConfig.appStoreUrl && (
+                    <a
+                      href={appConfig.appStoreUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-neutral-900 text-white hover:bg-neutral-800 transition shadow-lg"
+                    >
+                      <Apple className="w-6 h-6" fill="currentColor" />
+                      <span className="flex flex-col leading-tight text-left">
+                        <span className="text-[10px] uppercase tracking-wide text-neutral-300">Download on the</span>
+                        <span className="text-sm font-bold">App Store</span>
+                      </span>
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Phone mockup */}
+              <div className="hidden md:flex justify-center">
+                <div className="relative w-64 h-[520px] rounded-[2.5rem] border-8 border-neutral-900 bg-neutral-900 shadow-2xl overflow-hidden">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-neutral-900 rounded-b-2xl z-10" />
+                  <div className="w-full h-full bg-gradient-to-b from-primary/10 to-white flex flex-col items-center justify-center gap-4 p-6">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/15 flex items-center justify-center">
+                      <Dumbbell className="w-8 h-8 text-primary" />
+                    </div>
+                    <span className="text-neutral-900 font-black text-lg">{brand?.platformName || 'GymFlow'}</span>
+                    <span className="text-neutral-500 text-xs">Staff App</span>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      )}
 
       {/* PRICING */}
       <section id="pricing" className="py-24 bg-neutral-50/40 border-y border-neutral-100 px-6 z-10 relative">

@@ -122,6 +122,15 @@ export default function AppLayout() {
             tabBarItemStyle: { display: 'none' },
           }}
         />
+        {/* Training Studio (exercise library) hidden from bottom bar */}
+        <Tabs.Screen
+          name="(training)"
+          options={{
+            title: 'Training',
+            href: null,
+            tabBarItemStyle: { display: 'none' },
+          }}
+        />
         <Tabs.Screen
           name="(more)"
           options={{

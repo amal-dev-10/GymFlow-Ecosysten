@@ -22,6 +22,17 @@ export default function MobileAppsSettingsFields({ values, setValue, canEdit }: 
         <TextAreaField label="Maintenance Message" value={values.maintenanceMessage} onChange={(v) => setValue('maintenanceMessage', v)} disabled={!canEdit} rows={2} />
       )}
       <TextAreaField label="Release Notes" value={values.releaseNotes} onChange={(v) => setValue('releaseNotes', v)} disabled={!canEdit} rows={3} />
+
+      <div className="pt-4 mt-2 border-t border-neutral-200/70">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3">Landing Page — “Get the App” Section</h4>
+        <InfoNote>Controls the public marketing site&apos;s app-download section (GET /v1/platform/settings-public/mobile-app). The Play Store / App Store URLs above are the download links used here.</InfoNote>
+        <div className="space-y-4 mt-4">
+          <ToggleField label="Show on Landing Page" hint="Display the app-download section on the public marketing site." value={values.landingEnabled !== false} onChange={(v) => setValue('landingEnabled', v)} disabled={!canEdit} />
+          <TextField label="Headline" value={values.landingHeadline} onChange={(v) => setValue('landingHeadline', v)} disabled={!canEdit} />
+          <TextAreaField label="Subtitle" value={values.landingSubtitle} onChange={(v) => setValue('landingSubtitle', v)} disabled={!canEdit} rows={2} />
+          <TextAreaField label="Feature Highlights (one per line)" value={values.landingFeatures} onChange={(v) => setValue('landingFeatures', v)} disabled={!canEdit} rows={4} />
+        </div>
+      </div>
     </div>
   );
 }

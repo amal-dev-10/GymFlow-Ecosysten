@@ -103,6 +103,12 @@ export class PlatformGlobalSettingsPublicController {
     return this.service.getMobileVersionCheck();
   }
 
+  // Powers the marketing landing page's "Get the app" download section.
+  @Get('mobile-app')
+  getPublicMobileApp() {
+    return this.service.getPublicMobileApp();
+  }
+
   @Get('brand')
   getPublicBrand() {
     return this.service.getPublicBrand();

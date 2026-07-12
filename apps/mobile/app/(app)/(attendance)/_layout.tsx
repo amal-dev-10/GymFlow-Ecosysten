@@ -32,6 +32,8 @@ export default function AttendanceLayout() {
       <Stack.Screen name="scan" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
       <Stack.Screen name="active" options={{ title: 'Active Members Inside' }} />
       <Stack.Screen name="search" options={{ title: 'Manual Search', presentation: 'modal' }} />
+      <Stack.Screen name="devices/index" options={{ title: 'Devices' }} />
+      <Stack.Screen name="devices/register" options={{ title: 'Register Device' }} />
     </Stack>
   );
 }

@@ -1,15 +1,31 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, ScrollView, Pressable, TextInput, Alert } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, Pressable, TextInput, Alert, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Dumbbell, Apple, Plus, Trash2, Edit2, Check } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import { ArrowLeft, Dumbbell, Plus, Trash2, Search, X } from 'lucide-react-native';
 
 import { useTheme } from '@/theme/theme';
 import { useMember, useUpdateMember } from '@/hooks/useMembers';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useExercisePickerStore } from '@/store/exercisePicker.store';
+import { ExerciseDto } from '@/lib/api';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { SecondaryButton } from '@/components/SecondaryButton';
 import { SectionHeader } from '@/components/SectionHeader';
 import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+
+interface PlanExercise {
+  id: string;
+  exerciseId?: string;
+  name: string;
+  primaryMuscle?: string;
+  gifUrl?: string | null;
+  sets: string;
+  reps: string;
+  weight: string;
+}
 
 export default function ProgramScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,264 +35,181 @@ export default function ProgramScreen() {
 
   const { data: member, isLoading } = useMember(id as string);
   const updateMutation = useUpdateMember();
+  const setOnPick = useExercisePickerStore((s) => s.setOnPick);
 
   const [activeTab, setActiveTab] = useState<'workout' | 'diet'>('workout');
 
-  // Workouts
-  const [exercises, setExercises] = useState<any[]>([]);
-  const [newExName, setNewExName] = useState('');
-  const [newExSets, setNewExSets] = useState('');
-  const [newExReps, setNewExReps] = useState('');
-  const [newExWeight, setNewExWeight] = useState('');
-
-  // Diet
+  const [exercises, setExercises] = useState<PlanExercise[]>([]);
   const [meals, setMeals] = useState<any[]>([]);
   const [newMealTime, setNewMealTime] = useState('');
   const [newMealDesc, setNewMealDesc] = useState('');
 
-  React.useEffect(() => {
-    if (member?.aiInsights) {
-      if (Array.isArray(member.aiInsights.workoutPlan)) {
-        setExercises(member.aiInsights.workoutPlan);
-      } else {
-        setExercises([
-          { id: '1', name: 'Deadlift', sets: '3', reps: '8', weight: '100 kg' },
-          { id: '2', name: 'Lat Pulldown', sets: '4', reps: '10', weight: '60 kg' },
-        ]);
-      }
+  // Set/rep/weight sheet for a just-picked exercise.
+  const [pending, setPending] = useState<ExerciseDto | null>(null);
+  const [pSets, setPSets] = useState('3');
+  const [pReps, setPReps] = useState('10');
+  const [pWeight, setPWeight] = useState('');
 
-      if (Array.isArray(member.aiInsights.dietPlan)) {
-        setMeals(member.aiInsights.dietPlan);
-      } else {
-        setMeals([
-          { id: '1', time: '08:00 AM', description: 'Oatmeal, 4 egg whites, banana' },
-          { id: '2', time: '01:00 PM', description: 'Grilled chicken, brown rice, broccoli' },
-          { id: '3', time: '08:00 PM', description: 'Salmon, sweet potato, green salad' },
-        ]);
-      }
-    } else if (member) {
-      // Fallback if aiInsights is empty
-      setExercises([
-        { id: '1', name: 'Deadlift', sets: '3', reps: '8', weight: '100 kg' },
-        { id: '2', name: 'Lat Pulldown', sets: '4', reps: '10', weight: '60 kg' },
-      ]);
-      setMeals([
-        { id: '1', time: '08:00 AM', description: 'Oatmeal, 4 egg whites, banana' },
-        { id: '2', time: '01:00 PM', description: 'Grilled chicken, brown rice, broccoli' },
-        { id: '3', time: '08:00 PM', description: 'Salmon, sweet potato, green salad' },
-      ]);
-    }
+  React.useEffect(() => {
+    if (!member) return;
+    const ai = member.aiInsights || {};
+    if (Array.isArray(ai.workoutPlan)) setExercises(ai.workoutPlan);
+    if (Array.isArray(ai.dietPlan)) setMeals(ai.dietPlan);
   }, [member]);
 
-  const handleAddExercise = () => {
-    if (!newExName || !newExSets || !newExReps) {
-      Alert.alert('Error', 'Please fill in name, sets, and reps');
-      return;
-    }
+  const openLibrary = () => {
     lightImpact();
-    setExercises([...exercises, {
-      id: Date.now().toString(),
-      name: newExName,
-      sets: newExSets,
-      reps: newExReps,
-      weight: newExWeight || 'Bodyweight'
-    }]);
-    setNewExName('');
-    setNewExSets('');
-    setNewExReps('');
-    setNewExWeight('');
+    setOnPick((ex: ExerciseDto) => {
+      setPending(ex);
+      setPSets('3');
+      setPReps('10');
+      setPWeight('');
+    });
+    router.push('/(app)/(training)?pick=1');
   };
 
-  const handleRemoveExercise = (exId: string) => {
-    lightImpact();
-    setExercises(exercises.filter(ex => ex.id !== exId));
+  const confirmAdd = () => {
+    if (!pending) return;
+    const ex: PlanExercise = {
+      id: `${Date.now()}`,
+      exerciseId: pending.id,
+      name: pending.name,
+      primaryMuscle: pending.primaryMuscle,
+      gifUrl: pending.gifUrl,
+      sets: pSets || '3',
+      reps: pReps || '10',
+      weight: pWeight.trim() || 'Bodyweight',
+    };
+    setExercises((prev) => [...prev, ex]);
+    setPending(null);
+    successNotification();
   };
 
-  const handleAddMeal = () => {
+  const removeExercise = (exId: string) => {
+    lightImpact();
+    setExercises((prev) => prev.filter((e) => e.id !== exId));
+  };
+
+  const addMeal = () => {
     if (!newMealTime || !newMealDesc) {
       Alert.alert('Error', 'Please fill in meal time and details');
       return;
     }
     lightImpact();
-    setMeals([...meals, {
-      id: Date.now().toString(),
-      time: newMealTime,
-      description: newMealDesc
-    }]);
+    setMeals((prev) => [...prev, { id: `${Date.now()}`, time: newMealTime, description: newMealDesc }]);
     setNewMealTime('');
     setNewMealDesc('');
   };
 
-  const handleRemoveMeal = (mealId: string) => {
+  const removeMeal = (mealId: string) => {
     lightImpact();
-    setMeals(meals.filter(m => m.id !== mealId));
+    setMeals((prev) => prev.filter((m) => m.id !== mealId));
   };
 
-  const handleSaveProgram = () => {
-    successNotification();
-    const workoutSummary = exercises.map(ex => `${ex.name} (${ex.sets}x${ex.reps})`).join(', ');
-    const dietSummary = meals.map(m => `${m.time}: ${m.description}`).join(' | ');
-
-    const updatedAiInsights = {
-      ...(member?.aiInsights || {}),
-      workoutPlan: exercises,
-      dietPlan: meals,
-    };
-
-    const payload = {
-      id: id as string,
-      data: {
-        notes: `Program Updated: Workouts: [${workoutSummary}] | Diets: [${dietSummary}]`,
-        aiInsights: updatedAiInsights,
-        timelineUpdate: {
-          type: 'program-update',
-          title: 'Program Updated',
-          description: activeTab === 'workout' ? `Workout: ${workoutSummary}` : `Diet: ${dietSummary}`
-        }
+  const handleSave = () => {
+    const workoutSummary = exercises.map((ex) => `${ex.name} (${ex.sets}x${ex.reps})`).join(', ');
+    const dietSummary = meals.map((m) => `${m.time}: ${m.description}`).join(' | ');
+    updateMutation.mutate(
+      {
+        id: id as string,
+        data: {
+          aiInsights: { ...(member?.aiInsights || {}), workoutPlan: exercises, dietPlan: meals },
+          timelineUpdate: {
+            type: 'program-update',
+            title: 'Program Updated',
+            description: activeTab === 'workout' ? `Workout: ${workoutSummary}` : `Diet: ${dietSummary}`,
+          },
+        },
+      },
+      {
+        onSuccess: () => {
+          successNotification();
+          Alert.alert('Saved', 'Program updated successfully.');
+          router.back();
+        },
+        onError: (e: any) => Alert.alert('Error', e?.message || 'Failed to save program.'),
       }
-    };
-
-    updateMutation.mutate(payload, {
-      onSuccess: () => {
-        Alert.alert('Success', 'Program changes saved successfully!');
-        router.back();
-      }
-    });
+    );
   };
 
-  if (isLoading || !member) {
-    return null;
-  }
+  if (isLoading || !member) return null;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={22} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Manage Program</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Training Program</Text>
           <Text style={{ fontSize: 12, color: colors.textSecondary }}>{member.firstName} {member.lastName}</Text>
         </View>
       </View>
 
-      {/* Tabs */}
       <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-        <Pressable
-          onPress={() => setActiveTab('workout')}
-          style={[styles.tab, activeTab === 'workout' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-        >
-          <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === 'workout' ? colors.primary : colors.textSecondary }}>Workout Plan</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setActiveTab('diet')}
-          style={[styles.tab, activeTab === 'diet' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-        >
-          <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === 'diet' ? colors.primary : colors.textSecondary }}>Diet Plan</Text>
-        </Pressable>
+        {(['workout', 'diet'] as const).map((t) => (
+          <Pressable key={t} onPress={() => setActiveTab(t)} style={[styles.tab, activeTab === t && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === t ? colors.primary : colors.textSecondary }}>
+              {t === 'workout' ? 'Workout' : 'Diet'}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}>
         {activeTab === 'workout' ? (
-          /* WORKOUT ASSIGNMENT VIEW */
           <View>
-            <SectionHeader title="Active Exercises" />
-            {exercises.map((ex) => (
-              <Card key={ex.id} style={styles.itemCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>{ex.name}</Text>
-                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                    {ex.sets} Sets x {ex.reps} Reps • {ex.weight}
-                  </Text>
-                </View>
-                <Pressable onPress={() => handleRemoveExercise(ex.id)} style={{ padding: 8 }}>
-                  <Trash2 size={16} color={colors.error} />
-                </Pressable>
-              </Card>
-            ))}
+            <SectionHeader title={`Exercises (${exercises.length})`} />
+            {exercises.length === 0 ? (
+              <EmptyState icon={<Dumbbell size={40} color={colors.textMuted} />} title="No exercises yet" description="Add exercises from the library to build this program." style={{ marginVertical: spacing.lg }} />
+            ) : (
+              exercises.map((ex) => (
+                <Card key={ex.id} style={styles.exCard}>
+                  <View style={[styles.thumb, { backgroundColor: colors.surfaceElevated, borderRadius: radius.md }]}>
+                    {ex.gifUrl ? (
+                      <Image source={{ uri: ex.gifUrl }} style={{ width: '100%', height: '100%', borderRadius: radius.md }} contentFit="cover" transition={150} />
+                    ) : (
+                      <Dumbbell size={18} color={colors.textMuted} />
+                    )}
+                  </View>
+                  <View style={{ flex: 1, marginLeft: spacing.md }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }} numberOfLines={1}>{ex.name}</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                      {ex.sets} × {ex.reps} · {ex.weight}{ex.primaryMuscle ? ` · ${ex.primaryMuscle}` : ''}
+                    </Text>
+                  </View>
+                  <Pressable onPress={() => removeExercise(ex.id)} style={{ padding: 8 }}>
+                    <Trash2 size={16} color={colors.error} />
+                  </Pressable>
+                </Card>
+              ))
+            )}
 
-            {/* Add Exercise Form */}
-            <SectionHeader title="Add Custom Exercise" style={{ marginTop: spacing.xl }} />
-            <Card style={{ gap: spacing.sm, padding: spacing.md }}>
-              <TextInput
-                value={newExName}
-                onChangeText={setNewExName}
-                placeholder="Exercise Name (e.g. Leg Press)"
-                placeholderTextColor={colors.textMuted}
-                style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-              />
-              <View style={{ flexDirection: 'row', gap: spacing.md }}>
-                <TextInput
-                  value={newExSets}
-                  onChangeText={setNewExSets}
-                  placeholder="Sets"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="numeric"
-                  style={[styles.input, { flex: 1, color: colors.text, borderColor: colors.border }]}
-                />
-                <TextInput
-                  value={newExReps}
-                  onChangeText={setNewExReps}
-                  placeholder="Reps"
-                  placeholderTextColor={colors.textMuted}
-                  style={[styles.input, { flex: 1, color: colors.text, borderColor: colors.border }]}
-                />
-              </View>
-              <TextInput
-                value={newExWeight}
-                onChangeText={setNewExWeight}
-                placeholder="Weight Target (optional, e.g. 80 kg)"
-                placeholderTextColor={colors.textMuted}
-                style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-              />
-              <Pressable
-                onPress={handleAddExercise}
-                style={[styles.addBtn, { backgroundColor: colors.primary, borderRadius: radius.md }]}
-              >
-                <Plus size={16} color="#FFF" />
-                <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700', marginLeft: 4 }}>Add Exercise</Text>
-              </Pressable>
-            </Card>
+            <Pressable onPress={openLibrary} style={[styles.libraryBtn, { borderColor: colors.primary, backgroundColor: colors.primary + '10', borderRadius: radius.md }]}>
+              <Search size={16} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700', marginLeft: 8 }}>Add from Exercise Library</Text>
+            </Pressable>
           </View>
         ) : (
-          /* DIET ASSIGNMENT VIEW */
           <View>
-            <SectionHeader title="Meal Plan" />
+            <SectionHeader title={`Meal Plan (${meals.length})`} />
             {meals.map((meal) => (
-              <Card key={meal.id} style={styles.itemCard}>
+              <Card key={meal.id} style={styles.exCard}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>{meal.time}</Text>
                   <Text style={{ fontSize: 13, color: colors.text, marginTop: 4 }}>{meal.description}</Text>
                 </View>
-                <Pressable onPress={() => handleRemoveMeal(meal.id)} style={{ padding: 8 }}>
+                <Pressable onPress={() => removeMeal(meal.id)} style={{ padding: 8 }}>
                   <Trash2 size={16} color={colors.error} />
                 </Pressable>
               </Card>
             ))}
 
-            {/* Add Meal Form */}
             <SectionHeader title="Add Meal" style={{ marginTop: spacing.xl }} />
             <Card style={{ gap: spacing.sm, padding: spacing.md }}>
-              <TextInput
-                value={newMealTime}
-                onChangeText={setNewMealTime}
-                placeholder="Meal Time (e.g. 08:30 AM)"
-                placeholderTextColor={colors.textMuted}
-                style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-              />
-              <TextInput
-                multiline
-                value={newMealDesc}
-                onChangeText={setNewMealDesc}
-                placeholder="Meal Details (e.g. protein shake, oats)"
-                placeholderTextColor={colors.textMuted}
-                style={[styles.input, { minHeight: 60, textAlignVertical: 'top', color: colors.text, borderColor: colors.border }]}
-              />
-              <Pressable
-                onPress={handleAddMeal}
-                style={[styles.addBtn, { backgroundColor: colors.primary, borderRadius: radius.md }]}
-              >
+              <TextInput value={newMealTime} onChangeText={setNewMealTime} placeholder="Meal time (e.g. 08:30 AM)" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
+              <TextInput multiline value={newMealDesc} onChangeText={setNewMealDesc} placeholder="Details (e.g. oats, protein shake)" placeholderTextColor={colors.textMuted} style={[styles.input, { minHeight: 60, textAlignVertical: 'top', color: colors.text, borderColor: colors.border }]} />
+              <Pressable onPress={addMeal} style={[styles.addBtn, { backgroundColor: colors.primary, borderRadius: radius.md }]}>
                 <Plus size={16} color="#FFF" />
                 <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700', marginLeft: 4 }}>Add Meal</Text>
               </Pressable>
@@ -285,70 +218,70 @@ export default function ProgramScreen() {
         )}
       </ScrollView>
 
-      {/* Sticky Bottom Bar */}
       <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-        <PrimaryButton
-          label="Save Program Changes"
-          onPress={handleSaveProgram}
-          loading={updateMutation.isPending}
-        />
+        <PrimaryButton label="Save Program" onPress={handleSave} loading={updateMutation.isPending} />
       </View>
+
+      {/* Sets/reps/weight sheet for the picked exercise */}
+      <Modal visible={!!pending} transparent animationType="fade" onRequestClose={() => setPending(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface, borderRadius: radius.xl }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.thumb, { backgroundColor: colors.surfaceElevated, borderRadius: radius.md }]}>
+                {pending?.gifUrl ? (
+                  <Image source={{ uri: pending.gifUrl }} style={{ width: '100%', height: '100%', borderRadius: radius.md }} contentFit="cover" />
+                ) : (
+                  <Dumbbell size={18} color={colors.textMuted} />
+                )}
+              </View>
+              <Text style={{ flex: 1, marginLeft: spacing.md, fontSize: 15, fontWeight: '800', color: colors.text }} numberOfLines={2}>{pending?.name}</Text>
+              <Pressable onPress={() => setPending(null)} style={{ padding: 4 }}>
+                <X size={20} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg }}>
+              <Field label="Sets" value={pSets} onChangeText={setPSets} colors={colors} radius={radius} />
+              <Field label="Reps" value={pReps} onChangeText={setPReps} colors={colors} radius={radius} />
+            </View>
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Weight / Target (optional)</Text>
+              <TextInput value={pWeight} onChangeText={setPWeight} placeholder="e.g. 60 kg" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
+            </View>
+
+            <View style={{ flexDirection: 'row', marginTop: spacing.lg }}>
+              <SecondaryButton label="Cancel" onPress={() => setPending(null)} style={{ flex: 1, marginRight: spacing.sm }} />
+              <PrimaryButton label="Add" onPress={confirmAdd} style={{ flex: 2 }} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
+function Field({ label, value, onChangeText, colors, radius }: { label: string; value: string; onChangeText: (v: string) => void; colors: any; radius: any }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <TextInput value={value} onChangeText={onChangeText} keyboardType="numeric" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text, borderColor: colors.border, borderRadius: radius.md, textAlign: 'center', fontSize: 18, fontWeight: '700' }]} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    gap: 12,
-  },
-  backBtn: {
-    padding: 4,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  itemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    fontSize: 13,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    marginTop: 4,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-  }
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, gap: 12 },
+  backBtn: { padding: 4 },
+  tabBar: { flexDirection: 'row', borderBottomWidth: 1 },
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  exCard: { flexDirection: 'row', alignItems: 'center', padding: 12, marginBottom: 8 },
+  thumb: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  input: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, fontSize: 14 },
+  libraryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderWidth: 1, borderStyle: 'dashed', marginTop: 8 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, marginTop: 4 },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingVertical: 16, borderTopWidth: 1 },
+  fieldLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
+  sheet: { padding: 20 },
 });

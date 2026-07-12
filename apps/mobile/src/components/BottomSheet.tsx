@@ -1,5 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useState } from 'react';
-import { StyleSheet, View, Pressable, Dimensions, Keyboard, Modal } from 'react-native';
+import { StyleSheet, View, Pressable, Dimensions, Keyboard, Modal, Text } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { useTheme } from '../theme/theme';
 
@@ -16,10 +16,11 @@ interface BottomSheetProps {
   children: React.ReactNode;
   snapPoints?: number[]; // [minHeight, maxHeight] defaults to [300, SCREEN_HEIGHT * 0.75]
   onDismiss?: () => void;
+  title?: string;
 }
 
 export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(
-  ({ children, snapPoints, onDismiss }, ref) => {
+  ({ children, snapPoints, onDismiss, title }, ref) => {
     const { colors, radius } = useTheme();
     const [visible, setVisible] = useState(false);
 
@@ -84,6 +85,12 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(
                 <View style={styles.handleContainer}>
                   <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
                 </View>
+                
+                {title && (
+                  <View style={styles.headerContainer}>
+                    <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+                  </View>
+                )}
 
                 <View style={styles.content}>{children}</View>
               </Pressable>
@@ -118,6 +125,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
+  },
+  headerContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
   },
   content: {
     flex: 1,

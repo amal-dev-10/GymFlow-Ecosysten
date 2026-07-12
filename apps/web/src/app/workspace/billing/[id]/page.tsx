@@ -163,7 +163,7 @@ export default function InvoiceDetailsPage() {
  };
 
  return (
- <div className="min-h-screen bg-white text-neutral-900 p-8 space-y-6 relative overflow-hidden">
+ <div className="min-h-screen bg-white text-neutral-900 p-8 space-y-6 relative overflow-hidden print:p-0 print:bg-white print:overflow-visible">
 
  {/* TOAST */}
  {toast && (
@@ -177,7 +177,7 @@ export default function InvoiceDetailsPage() {
  )}
 
  {/* HEADER */}
- <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-200/80 pb-6">
+ <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-200/80 pb-6 print:hidden">
  <div className="flex items-center gap-3">
  <button
  onClick={() => router.push('/workspace/billing')}
@@ -228,13 +228,13 @@ export default function InvoiceDetailsPage() {
  </div>
 
  {/* CORE WORKSPACE GRID */}
- <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+ <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print:block print:w-full print:border-none">
 
  {/* LEFT/CENTER: INVOICE PREVIEW & DETAILS (Col span 2) */}
- <div className="lg:col-span-2 space-y-6">
+ <div className="lg:col-span-2 space-y-6 print:w-full print:p-0">
 
  {/* PROFESSIONAL INVOICE PREVIEW SHEET */}
- <div className="bg-white border border-neutral-200/80 rounded-3xl p-8 space-y-8 print:bg-white print:text-neutral-400 print:p-0 print:border-none print:shadow-none">
+ <div className="bg-white border border-neutral-200/80 rounded-3xl p-8 space-y-8 print:bg-white print:text-neutral-900 print:p-0 print:border-none print:shadow-none print:w-full">
 
  {/* Top Header Row */}
  <div className="flex justify-between items-start">
@@ -334,7 +334,7 @@ export default function InvoiceDetailsPage() {
  </div>
 
  {/* RIGHT COLUMN: PAYMENT SUMMARY & TIMELINE (Col span 1) */}
- <div className="lg:col-span-1 space-y-6 shrink-0">
+ <div className="lg:col-span-1 space-y-6 shrink-0 print:hidden">
 
  {/* PAYMENT SUMMARY WIDGET */}
  <div className="bg-white border border-neutral-200/80 rounded-3xl p-5 space-y-4">

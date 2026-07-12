@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, RefreshControl, ActivityIndicator, Alert } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
-import { ScanLine, Search, Users, LogIn, LogOut, AlertCircle, Clock, User } from 'lucide-react-native';
+import { ScanLine, Search, Users, LogIn, LogOut, AlertCircle, Clock, User, Monitor } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { useTheme } from '../../../src/theme/theme';
@@ -33,7 +33,7 @@ export default function AttendanceDashboardScreen() {
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useAttendanceStats(activeGymId || '');
   const { data: logs, isLoading: logsLoading, refetch: refetchLogs, isFetching } = useAttendanceLogs(activeGymId || '');
-  
+
   const checkOutMutation = useCheckOut();
 
   const detailsSheetRef = useRef<BottomSheetRef>(null);
@@ -103,16 +103,25 @@ export default function AttendanceDashboardScreen() {
             label="Scan QR"
             icon={<ScanLine size={24} color={colors.primary} />}
             onPress={() => router.push('/(app)/(attendance)/scan')}
+            style={{ flex: 1 }}
           />
           <QuickActionButton
             label="Search"
             icon={<Search size={24} color={colors.primary} />}
             onPress={() => router.push('/(app)/(attendance)/search')}
+            style={{ flex: 1 }}
           />
           <QuickActionButton
             label="Active Inside"
             icon={<Users size={24} color={colors.primary} />}
             onPress={() => router.push('/(app)/(attendance)/active')}
+            style={{ flex: 1 }}
+          />
+          <QuickActionButton
+            label="Devices"
+            icon={<Monitor size={24} color={colors.primary} />}
+            onPress={() => router.push('/(app)/(attendance)/devices')}
+            style={{ flex: 1 }}
           />
         </View>
       </Animated.View>

@@ -87,6 +87,12 @@ export const DEFAULTS: Record<string, Record<string, any>> = {
     playStoreUrl: '',
     appStoreUrl: '',
     releaseNotes: '',
+    // --- Public landing-page "Get the app" section (marketing site) ---
+    landingEnabled: true,
+    landingHeadline: 'Run your gym from your pocket',
+    landingSubtitle: 'Check in members, collect payments, and track your gym in real time with the GymFlow Staff app.',
+    // One feature per line; the public endpoint splits these into a list.
+    landingFeatures: 'Scan member QR codes for instant check-in\nCollect dues and log payments on the go\nTrack attendance, revenue and renewals live',
   },
   system: {
     cacheLastClearedAt: null,
@@ -337,6 +343,25 @@ export class PlatformGlobalSettingsService {
   // only Mobile Apps fields belong here, never anything sensitive.
   async getMobileVersionCheck() {
     return this.getCategory('mobile_apps');
+  }
+
+  // Public shape for the marketing landing page's "Get the app" section.
+  // Projects only the download/marketing subset of Mobile Apps - never the
+  // force-update/maintenance flags or version internals.
+  async getPublicMobileApp() {
+    const m = await this.getCategory('mobile_apps');
+    const features = String(m.landingFeatures || '')
+      .split('\n')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    return {
+      enabled: m.landingEnabled !== false,
+      headline: m.landingHeadline || '',
+      subtitle: m.landingSubtitle || '',
+      features,
+      playStoreUrl: m.playStoreUrl || '',
+      appStoreUrl: m.appStoreUrl || '',
+    };
   }
 
   // Public shape - no auth guard on the controller route calling this. Only

@@ -198,12 +198,7 @@ export const devicesApi = {
   /**
    * Registers a new attendance device.
    */
-  create: async (payload: {
-    organizationId?: string;
-    gymId: string;
-    name: string;
-    type: 'QR_SCANNER' | 'FINGERPRINT' | 'RFID' | 'FACE_CAMERA' | 'TURNSTILE' | 'BARCODE';
-  }) => {
+  create: async (payload: any) => {
     const response = await apiClient.post('/v1/devices', payload);
     return response.data;
   },
@@ -211,7 +206,7 @@ export const devicesApi = {
   /**
    * Updates an existing device.
    */
-  update: async (id: string, payload: { name?: string; type?: string; status?: 'OFFLINE' | 'ONLINE' | 'ERROR' }) => {
+  update: async (id: string, payload: any) => {
     const response = await apiClient.patch(`/v1/devices/${id}`, payload);
     return response.data;
   },
@@ -229,6 +224,31 @@ export const devicesApi = {
    */
   remove: async (id: string) => {
     const response = await apiClient.delete(`/v1/devices/${id}`);
+    return response.data;
+  },
+
+  get: async (id: string) => {
+    const response = await apiClient.get<any>(`/v1/devices/${id}`);
+    return response.data;
+  },
+
+  getEvents: async (id: string) => {
+    const response = await apiClient.get<any[]>(`/v1/devices/${id}/events`);
+    return response.data;
+  },
+
+  getMembers: async (id: string) => {
+    const response = await apiClient.get<any[]>(`/v1/devices/${id}/members`);
+    return response.data;
+  },
+
+  syncNow: async (id: string) => {
+    const response = await apiClient.post(`/v1/devices/${id}/sync-now`);
+    return response.data;
+  },
+
+  testConnection: async (id: string) => {
+    const response = await apiClient.post(`/v1/devices/${id}/test-connection`);
     return response.data;
   },
 };
